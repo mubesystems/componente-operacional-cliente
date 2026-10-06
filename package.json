@@ -1,0 +1,33 @@
+{
+  "name": "@mubesystems/componente-operacional",
+  "version": "0.1.0",
+  "description": "Componente da Mube para o software do cliente: reportar erros, acompanhar, aceitar ou recusar, Drive e notificações.",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/cliente/index.d.ts",
+      "import": "./dist/cliente/index.js"
+    },
+    "./servidor": {
+      "types": "./dist/servidor/index.d.ts",
+      "import": "./dist/servidor/index.js"
+    },
+    "./estilos.css": "./dist/estilos.css",
+    "./sql/componente-mube.sql": "./dist/sql/componente-mube.sql"
+  },
+  "peerDependencies": {
+    "react": ">=19",
+    "react-dom": ">=19"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mubesystems/componente-operacional-cliente.git"
+  },
+  "license": "UNLICENSED"
+}
