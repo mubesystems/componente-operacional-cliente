@@ -2,9 +2,9 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useSuporte } from "./componente";
-import { Ficheiro, Pasta } from "./ficheiros";
-import { Botao, BotaoIcone, dia, ErroAoCarregar, Esqueleto, Icone, Janela, tamanho, Vazio } from "./ui";
+import { useSuporte } from "./componente.js";
+import { Ficheiro, Pasta } from "./ficheiros.js";
+import { Botao, BotaoIcone, dia, ErroAoCarregar, Esqueleto, Icone, Janela, tamanho, Vazio } from "./ui.js";
 const chave = (n) => `${n.tipo}:${n.id}`;
 /** O tipo do arrasto interno (não confunde com ficheiros vindos do computador). */
 const ARRASTO = "application/x-mube-drive";

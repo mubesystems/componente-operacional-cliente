@@ -1,6 +1,6 @@
 {
   "name": "@mubesystems/componente-operacional",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Componente da Mube para o software do cliente: reportar erros, acompanhar, aceitar ou recusar, Drive e notificações.",
   "type": "module",
   "sideEffects": [

@@ -1,6 +1,6 @@
 import { type ReactNode } from "react";
-import { ICONES } from "../gerado/icones";
-import type { Estado } from "../tipos";
+import { ICONES } from "../gerado/icones.js";
+import type { Estado } from "../tipos.js";
 export type NomeDoIcone = keyof typeof ICONES;
 export declare function Icone({ nome, tamanho, className, rotulo }: {
     nome: NomeDoIcone;

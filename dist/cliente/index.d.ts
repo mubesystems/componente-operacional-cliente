@@ -1,2 +1,2 @@
-export { ComponenteMube } from "./componente";
-export type { Estado, Impacto, TicketDetalhe, TicketResumo, Notificacao } from "../tipos";
+export { ComponenteMube } from "./componente.js";
+export type { Estado, Impacto, TicketDetalhe, TicketResumo, Notificacao } from "../tipos.js";

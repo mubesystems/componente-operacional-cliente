@@ -13,10 +13,10 @@
  * 1). Quem pede é sempre o utilizador da sessão do software do cliente, nunca
  * um id vindo do navegador.
  */
-import type { Armazem } from "./armazem";
-import type { PessoaDaEquipa, Utilizador } from "../tipos";
-export { armazemEmMemoria, armazemSupabase, type Armazem } from "./armazem";
-export type { PessoaDaEquipa, Utilizador } from "../tipos";
+import type { Armazem } from "./armazem.js";
+import type { PessoaDaEquipa, Utilizador } from "../tipos.js";
+export { armazemEmMemoria, armazemSupabase, type Armazem } from "./armazem.js";
+export type { PessoaDaEquipa, Utilizador } from "../tipos.js";
 export interface ConfiguracaoMube {
     /** Endereço do Operacional. Por omissão, `MUBE_URL`. */
     url?: string;

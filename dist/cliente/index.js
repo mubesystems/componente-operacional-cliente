@@ -1,2 +1,2 @@
 "use client";
-export { ComponenteMube } from "./componente";
+export { ComponenteMube } from "./componente.js";

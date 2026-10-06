@@ -1,8 +1,8 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useState } from "react";
-import { useSuporte } from "./componente";
-import { Botao, haQuanto, Icone, Vazio } from "./ui";
+import { useSuporte } from "./componente.js";
+import { Botao, haQuanto, Icone, Vazio } from "./ui.js";
 const ICONE = {
     estado: "Refresh",
     recebido: "Refresh",

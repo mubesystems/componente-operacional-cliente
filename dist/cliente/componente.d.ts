@@ -1,5 +1,5 @@
-import { type Api } from "./api";
-import type { NotificacaoLida, Sessao } from "../tipos";
+import { type Api } from "./api.js";
+import type { NotificacaoLida, Sessao } from "../tipos.js";
 interface Contexto {
     api: Api;
     sessao: Sessao;

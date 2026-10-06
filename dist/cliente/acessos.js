@@ -1,8 +1,8 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSuporte } from "./componente";
-import { Botao, ErroAoCarregar, Esqueleto, Icone, Vazio } from "./ui";
+import { useSuporte } from "./componente.js";
+import { Botao, ErroAoCarregar, Esqueleto, Icone, Vazio } from "./ui.js";
 const iniciais = (nome) => nome
     .trim()
     .split(/\s+/)

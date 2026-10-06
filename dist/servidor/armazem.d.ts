@@ -1,4 +1,4 @@
-import type { Liberado, Notificacao, NotificacaoLida, TicketNaCopia } from "../tipos";
+import type { Liberado, Notificacao, NotificacaoLida, TicketNaCopia } from "../tipos.js";
 /**
  * A cópia só de leitura do estado, do lado do cliente (requisito 13 do mapa do
  * v1). O webhook escreve, o componente lê: os tickets aparecem mesmo que a

@@ -1,5 +1,5 @@
-import type { Api } from "./api";
-import type { TicketDetalhe } from "../tipos";
+import type { Api } from "./api.js";
+import type { TicketDetalhe } from "../tipos.js";
 export interface Envio {
     chave: string;
     nome: string;

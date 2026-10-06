@@ -1,10 +1,10 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSuporte } from "./componente";
-import { Anexos } from "./multimedia";
-import { GravadorDeAudio, ListaDeEnvios, NovoRelato, useEnvios } from "./relato";
-import { Botao, BotaoIcone, dia, diaEHora, ErroAoCarregar, Esqueleto, ESTADOS_EM_ORDEM, Icone, Janela, Rodinha, rotuloDoEstado, SeloDeEstado, SeloDePrioridade, Vazio, } from "./ui";
+import { useSuporte } from "./componente.js";
+import { Anexos } from "./multimedia.js";
+import { GravadorDeAudio, ListaDeEnvios, NovoRelato, useEnvios } from "./relato.js";
+import { Botao, BotaoIcone, dia, diaEHora, ErroAoCarregar, Esqueleto, ESTADOS_EM_ORDEM, Icone, Janela, Rodinha, rotuloDoEstado, SeloDeEstado, SeloDePrioridade, Vazio, } from "./ui.js";
 // ─── Lista e kanban (Figma: Embed 5.1 e 5.3) ─────────────────────────────────
 export function Tickets() {
     const { api, versao, ticketAberto, abrirTicket } = useSuporte();

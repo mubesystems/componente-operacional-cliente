@@ -1,4 +1,4 @@
-import type { Acessos, Drive, Ficheiro, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos";
+import type { Acessos, Drive, Ficheiro, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos.js";
 export declare class ErroDoSuporte extends Error {
     readonly codigo: string;
     readonly estado: number;

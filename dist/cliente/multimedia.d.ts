@@ -1,4 +1,4 @@
-import type { Ficheiro as FicheiroDaApi } from "../tipos";
+import type { Ficheiro as FicheiroDaApi } from "../tipos.js";
 export declare const tipoDeMedia: (mime: string) => "imagem" | "video" | "audio" | null;
 /** Leitor de áudio e vídeo: play, tempo, barra (também pelas setas) e velocidade. */
 export declare function Leitor({ url, tipo, nome, grande, aoAmpliar }: {

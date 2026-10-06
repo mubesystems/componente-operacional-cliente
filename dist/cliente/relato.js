@@ -1,9 +1,9 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSuporte } from "./componente";
-import { Ficheiro } from "./ficheiros";
-import { Botao, BotaoIcone, Icone, Janela, Rodinha, tamanho } from "./ui";
+import { useSuporte } from "./componente.js";
+import { Ficheiro } from "./ficheiros.js";
+import { Botao, BotaoIcone, Icone, Janela, Rodinha, tamanho } from "./ui.js";
 export function useEnvios(api) {
     const [envios, setEnvios] = useState([]);
     const controlos = useRef(new Map());

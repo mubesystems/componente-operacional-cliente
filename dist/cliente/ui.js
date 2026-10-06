@@ -1,7 +1,7 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
 import { useEffect, useId, useRef } from "react";
-import { ICONES } from "../gerado/icones";
+import { ICONES } from "../gerado/icones.js";
 export function Icone({ nome, tamanho = 16, className = "", rotulo }) {
     return (_jsx("svg", { width: tamanho, height: tamanho, viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg", className: `mube:shrink-0 ${className}`, role: rotulo ? "img" : undefined, "aria-label": rotulo, "aria-hidden": rotulo ? undefined : true, dangerouslySetInnerHTML: { __html: ICONES[nome] } }));
 }

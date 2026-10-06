@@ -14,7 +14,7 @@
  * um id vindo do navegador.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
-export { armazemEmMemoria, armazemSupabase } from "./armazem";
+export { armazemEmMemoria, armazemSupabase } from "./armazem.js";
 class Falha extends Error {
     estado;
     codigo;

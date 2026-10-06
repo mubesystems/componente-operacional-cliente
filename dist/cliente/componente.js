@@ -2,12 +2,12 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Acessos } from "./acessos";
-import { criarApi } from "./api";
-import { Drive } from "./drive";
-import { Notificacoes } from "./notificacoes";
-import { Tickets } from "./tickets";
-import { BotaoIcone, Icone, Vazio } from "./ui";
+import { Acessos } from "./acessos.js";
+import { criarApi } from "./api.js";
+import { Drive } from "./drive.js";
+import { Notificacoes } from "./notificacoes.js";
+import { Tickets } from "./tickets.js";
+import { BotaoIcone, Icone, Vazio } from "./ui.js";
 const Ctx = createContext(null);
 export const useSuporte = () => {
     const c = useContext(Ctx);

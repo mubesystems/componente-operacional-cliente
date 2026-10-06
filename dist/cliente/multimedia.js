@@ -1,8 +1,8 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useEffect, useRef, useState } from "react";
-import { Ficheiro } from "./ficheiros";
-import { Icone, tamanho } from "./ui";
+import { Ficheiro } from "./ficheiros.js";
+import { Icone, tamanho } from "./ui.js";
 /*
  * Imagens, áudio e vídeo dos anexos (Figma: Player / Audio e Player / Video),
  * portados de apps/operacional/components/tickets/leitor.tsx e lightbox.tsx.
