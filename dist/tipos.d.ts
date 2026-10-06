@@ -2,6 +2,7 @@
  * O que a plataforma devolve (docs/v1/api-do-componente.md), tal como o
  * componente o usa. Partilhado entre a parte servidor e a interface.
  */
+import type { ModeloDeCredencial } from "./credenciais.js";
 export type Estado = "relato" | "triagem" | "contencao" | "correcao" | "em_validacao" | "aguardando_aceite" | "concluida" | "descartada";
 export type Impacto = "impede" | "contorno" | "incomoda" | "cosmetico";
 export interface Ficheiro {
@@ -123,7 +124,7 @@ export interface Drive {
     pastas: PastaDaDrive[];
     itens: ItemDaDrive[];
 }
-export type TipoDeNotificacao = "estado" | "comentario" | "mencao" | "aceite_pendente" | "concluido" | "recebido" | "aviso";
+export type TipoDeNotificacao = "estado" | "comentario" | "mencao" | "aceite_pendente" | "concluido" | "recebido" | "aviso" | "credencial";
 export interface Notificacao {
     id: string;
     tipo: TipoDeNotificacao;
@@ -150,15 +151,18 @@ export interface Utilizador {
     liberado?: boolean;
     /** Vê a Drive. Sem este campo, vale a escolha feita em "Acessos" (por omissão, sim). */
     drive?: boolean;
+    /** Vê e envia as credenciais (S63). Sem este campo, vale a escolha feita em "Acessos" (por omissão, não). */
+    credenciais?: boolean;
     /** Gere os acessos ao suporte (vê o separador "Acessos"). */
     gestor?: boolean;
 }
 /** Alguém da equipa do software do cliente, para o gestor escolher quem tem acesso. */
-export type PessoaDaEquipa = Omit<Utilizador, "liberado" | "drive" | "gestor">;
-/** Quem tem acesso ao suporte e se vê a Drive (a Drive só vale com o suporte). */
+export type PessoaDaEquipa = Omit<Utilizador, "liberado" | "drive" | "credenciais" | "gestor">;
+/** Quem tem acesso ao suporte e se vê a Drive e as credenciais (só valem com o suporte). */
 export interface Liberado {
     id: string;
     drive: boolean;
+    credenciais: boolean;
 }
 export interface Sessao {
     utilizador: {
@@ -168,13 +172,48 @@ export interface Sessao {
     liberado: boolean;
     /** Vê a Drive: sem isto, o separador não aparece. */
     drive: boolean;
+    /** Vê e envia as credenciais (S63): sem isto, o separador não aparece. */
+    credenciais: boolean;
     gestor: boolean;
+    /** O tour guiado (S65): feito, dispensado ou ainda não (o banner aparece). Fica no banco do próprio software. */
+    tour?: EstadoDoTour | null;
 }
+export type EstadoDoTour = "concluido" | "dispensado";
 export interface Acessos {
     equipa: (PessoaDaEquipa & {
         liberado: boolean;
         drive: boolean;
+        credenciais: boolean;
     })[];
+}
+/** Um pedido da equipa da Mube por responder (S63). */
+export interface PedidoDeCredencial {
+    id: string;
+    modelo: ModeloDeCredencial;
+    titulo: string;
+    descricao: string | null;
+    pedido_por: {
+        nome: string;
+    };
+    criado_em: string;
+}
+/** Uma credencial enviada daqui: só o nome, nunca o valor. */
+export interface CredencialEnviada {
+    id: string;
+    modelo: ModeloDeCredencial;
+    nome: string;
+    url: string | null;
+    enviada_por: {
+        id: string;
+        nome: string | null;
+    };
+    enviada_em: string;
+    atualizada_em: string;
+    pedido_id: string | null;
+}
+export interface Credenciais {
+    pedidos: PedidoDeCredencial[];
+    enviadas: CredencialEnviada[];
 }
 export interface ErroDaApi {
     erro: {

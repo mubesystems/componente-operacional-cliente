@@ -1,4 +1,5 @@
-import type { Acessos, Drive, Ficheiro, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos.js";
+import type { CamposDaCredencial, ModeloDeCredencial } from "../credenciais.js";
+import type { Acessos, Credenciais, Drive, EstadoDoTour, Ficheiro, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos.js";
 export declare class ErroDoSuporte extends Error {
     readonly codigo: string;
     readonly estado: number;
@@ -48,10 +49,30 @@ export declare function criarApi(base: string): {
     definirAcessos: (acessos: {
         id: string;
         drive: boolean;
+        credenciais: boolean;
     }[]) => Promise<{
         liberados: number;
         comDrive: number;
+        comCredenciais?: number;
     }>;
+    credenciais: () => Promise<Credenciais>;
+    marcarTour: (estado: EstadoDoTour) => Promise<unknown>;
+    enviarCredencial: (corpo: {
+        modelo: ModeloDeCredencial;
+        nome?: string;
+        url?: string;
+        campos: CamposDaCredencial;
+        pedidoId?: string;
+    }) => Promise<unknown>;
+    editarCredencial: (id: string, corpo: {
+        nome?: string;
+        url?: string;
+        campos: CamposDaCredencial;
+    }) => Promise<unknown>;
+    revelarCredencial: (id: string) => Promise<{
+        conteudo: CamposDaCredencial;
+    }>;
+    retirarCredencial: (id: string) => Promise<unknown>;
     enviar: (ficheiro: Blob, nome: string, aoProgresso?: (fracao: number) => void, sinal?: AbortSignal) => Promise<Ficheiro>;
 };
 export type Api = ReturnType<typeof criarApi>;

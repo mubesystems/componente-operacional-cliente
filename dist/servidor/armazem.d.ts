@@ -1,4 +1,4 @@
-import type { Liberado, Notificacao, NotificacaoLida, TicketNaCopia } from "../tipos.js";
+import type { EstadoDoTour, Liberado, Notificacao, NotificacaoLida, TicketNaCopia } from "../tipos.js";
 /**
  * A cópia só de leitura do estado, do lado do cliente (requisito 13 do mapa do
  * v1). O webhook escreve, o componente lê: os tickets aparecem mesmo que a
@@ -17,9 +17,12 @@ export interface Armazem {
     guardarNotificacao(n: Notificacao): Promise<void>;
     notificacoes(utilizadorId: string, limite?: number): Promise<NotificacaoLida[]>;
     marcarLidas(utilizadorId: string, ids: string[] | "todas"): Promise<void>;
-    /** Quem o gestor do software liberou para o suporte (S14, S18), com os ids do software do cliente, e se vê a Drive. */
+    /** Quem o gestor do software liberou para o suporte (S14, S18), com os ids do software do cliente, e se vê a Drive e as credenciais. */
     liberados(): Promise<Liberado[]>;
     definirLiberados(lista: Liberado[]): Promise<void>;
+    /** Se a pessoa já fez (ou dispensou) o tour guiado (S65): nunca vai à plataforma. */
+    tour(utilizadorId: string): Promise<EstadoDoTour | null>;
+    marcarTour(utilizadorId: string, estado: EstadoDoTour): Promise<void>;
 }
 /** Em memória: para desenvolvimento e testes. Perde-se ao reiniciar o servidor. */
 export declare function armazemEmMemoria(): Armazem;
@@ -31,10 +34,6 @@ export declare function armazemEmMemoria(): Armazem;
 type ClienteSupabase = {
     from: (tabela: string) => any;
 };
-/**
- * No Supabase do cliente, nas tabelas de `sql/componente-mube.sql`. Use o
- * cliente com a service role: as tabelas têm RLS ligada e nenhuma política.
- */
 export declare function armazemSupabase(supabase: ClienteSupabase, opcoes?: {
     prefixo?: string;
 }): Armazem;

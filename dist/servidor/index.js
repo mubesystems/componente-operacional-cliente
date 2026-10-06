@@ -124,12 +124,24 @@ export function criarRotasMube(config) {
             const liberado = quem ? (quem.liberado ?? Boolean(escolha)) : false;
             // A Drive só com o suporte; por omissão, quem tem o suporte vê-a.
             const drive = liberado && (quem?.drive ?? escolha?.drive ?? true);
+            // As credenciais (S63) também se escolhem por pessoa; por omissão, não.
+            const credenciais = liberado && (quem?.credenciais ?? escolha?.credenciais ?? false);
             const gestor = Boolean(quem?.gestor);
             if (metodo === "GET" && caminho === "sessao") {
-                return json({ utilizador: quem ? { id: quem.id, nome: quem.nome ?? null } : null, liberado, drive, gestor });
+                // S65: se já fez o tour, só da cópia do próprio software.
+                const tour = quem && (liberado || gestor) ? await armazem.tour(quem.id).catch(() => null) : null;
+                return json({ utilizador: quem ? { id: quem.id, nome: quem.nome ?? null } : null, liberado, drive, credenciais, gestor, tour });
             }
             if (!quem)
                 throw new Falha(401, "sem_sessao", "Entre no software para usar o suporte.");
+            // O tour guiado (S65): fica marcado aqui, na cópia; o tour em si não pede nada à plataforma.
+            if (metodo === "POST" && caminho === "tour") {
+                const { estado } = (await request.json().catch(() => ({})));
+                if (estado !== "concluido" && estado !== "dispensado")
+                    throw new Falha(400, "estado_invalido", "Estado do tour inválido.");
+                await armazem.marcarTour(quem.id, estado);
+                return json({ ok: true });
+            }
             // Acessos: o gestor escolhe, da equipa do software, quem usa o suporte (S14, S18).
             if (caminho === "acessos") {
                 if (!gestor)
@@ -138,11 +150,13 @@ export function criarRotasMube(config) {
                     throw new Falha(501, "equipa_por_configurar", "Falta indicar a equipa do software (opção `equipa`).");
                 const equipa = await config.equipa();
                 if (metodo === "GET") {
-                    const escolhas = new Map((await armazem.liberados()).map((l) => [l.id, l.drive]));
-                    return json({ equipa: equipa.map((p) => ({ ...p, liberado: escolhas.has(p.id), drive: escolhas.get(p.id) ?? false })) });
+                    const escolhas = new Map((await armazem.liberados()).map((l) => [l.id, l]));
+                    return json({
+                        equipa: equipa.map((p) => ({ ...p, liberado: escolhas.has(p.id), drive: escolhas.get(p.id)?.drive ?? false, credenciais: escolhas.get(p.id)?.credenciais ?? false })),
+                    });
                 }
                 if (metodo === "PUT") {
-                    // { acessos: [{ id, drive }] }; `{ ids }` (versões anteriores) dá a Drive a todos.
+                    // { acessos: [{ id, drive, credenciais }] }; `{ ids }` (versões anteriores) dá a Drive a todos.
                     const pedido = (await request.json().catch(() => ({})));
                     const lista = Array.isArray(pedido.acessos)
                         ? pedido.acessos
@@ -153,17 +167,19 @@ export function criarRotasMube(config) {
                         throw new Falha(400, "acessos_invalidos", "Indique a lista de pessoas.");
                     const daEquipa = new Map(equipa.map((p) => [p.id, p]));
                     const escolhidos = [
-                        ...new Map(lista.filter((a) => daEquipa.has(a.id)).map((a) => [a.id, { id: a.id, drive: a.drive !== false }])).values(),
+                        ...new Map(lista
+                            .filter((a) => daEquipa.has(a.id))
+                            .map((a) => [a.id, { id: a.id, drive: a.drive !== false, credenciais: a.credenciais === true }])).values(),
                     ];
                     // Primeiro a plataforma: se falhar, nada muda aqui.
                     await plataforma("PUT", "/liberados", {
                         utilizadores: escolhidos.map((a) => {
                             const p = daEquipa.get(a.id);
-                            return { id: p.id, nome: p.nome ?? null, email: p.email ?? null, fotoUrl: p.fotoUrl ?? null, drive: a.drive };
+                            return { id: p.id, nome: p.nome ?? null, email: p.email ?? null, fotoUrl: p.fotoUrl ?? null, drive: a.drive, credenciais: a.credenciais };
                         }),
                     });
                     await armazem.definirLiberados(escolhidos);
-                    return json({ liberados: escolhidos.length, comDrive: escolhidos.filter((a) => a.drive).length });
+                    return json({ liberados: escolhidos.length, comDrive: escolhidos.filter((a) => a.drive).length, comCredenciais: escolhidos.filter((a) => a.credenciais).length });
                 }
             }
             if (!liberado)
@@ -225,9 +241,25 @@ export function criarRotasMube(config) {
                 if (["POST", "PATCH", "DELETE"].includes(metodo))
                     return json(await plataforma(metodo, `/${caminho}`, await corpo()), metodo === "POST" ? 201 : 200);
             }
-            // Notificações: só na cópia.
-            if (metodo === "GET" && caminho === "notificacoes")
-                return json({ notificacoes: (await armazem.notificacoes(quem.id)).map((n) => paraQuem(n, quem.id)) });
+            // Credenciais (S63): só para quem as tem; seguem para a plataforma, com o utilizador da sessão. Nunca se guardam aqui, nem os valores.
+            if (partes[0] === "credenciais") {
+                if (!credenciais)
+                    throw new Falha(403, "sem_credenciais", "Não tem acesso às credenciais deste projeto.");
+                if (metodo === "GET" && partes.length === 1)
+                    return json(await plataforma("GET", "/credenciais"));
+                if (metodo === "POST" && partes.length === 1)
+                    return json(await plataforma("POST", "/credenciais", await corpo()), 201);
+                if (["PUT", "DELETE"].includes(metodo) && partes.length === 2)
+                    return json(await plataforma(metodo, `/${caminho}`, await corpo()));
+                // Ver o que se enviou: decifrado na plataforma, a pedido, e registado.
+                if (metodo === "POST" && partes.length === 3 && partes[2] === "revelar")
+                    return json(await plataforma("POST", `/${caminho}`, await corpo()));
+            }
+            // Notificações: só na cópia. Os pedidos de credenciais só a quem as vê.
+            if (metodo === "GET" && caminho === "notificacoes") {
+                const avisos = (await armazem.notificacoes(quem.id)).filter((n) => credenciais || n.tipo !== "credencial");
+                return json({ notificacoes: avisos.map((n) => paraQuem(n, quem.id)) });
+            }
             if (metodo === "POST" && caminho === "notificacoes/lidas") {
                 const { ids } = (await request.json().catch(() => ({})));
                 await armazem.marcarLidas(quem.id, ids === "todas" || !ids ? "todas" : ids.slice(0, 500));
@@ -314,6 +346,14 @@ function paraQuem(n, utilizadorId) {
     return { ...n, tipo: "mencao", titulo: codigo ? `Menção da equipa em ${codigo}` : "Menção da equipa" };
 }
 function notificacaoDoEvento(evento) {
+    // Um aviso sem ticket (ex.: a equipa pediu uma credencial, S63).
+    if (evento.tipo === "notificacao") {
+        const n = evento.dados.notificacao;
+        if (!n?.titulo)
+            return null;
+        const tipo = n.tipo === "credencial" ? "credencial" : "aviso";
+        return { id: evento.id, tipo, ticket_numero: null, titulo: n.titulo.slice(0, 200), corpo: n.corpo?.slice(0, 500) ?? null, criado_em: evento.ocorrido_em };
+    }
     const ticket = evento.dados.ticket;
     if (!ticket)
         return null;

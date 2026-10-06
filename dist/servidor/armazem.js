@@ -7,6 +7,7 @@ export function armazemEmMemoria() {
     const lidas = new Set();
     let liberados = [];
     let sincronizado = false;
+    const tours = new Map();
     return {
         async tickets() {
             return [...tickets.values()].sort((a, b) => b.numero - a.numero);
@@ -48,7 +49,13 @@ export function armazemEmMemoria() {
             return liberados.map((l) => ({ ...l }));
         },
         async definirLiberados(lista) {
-            liberados = [...new Map(lista.map((l) => [l.id, { id: l.id, drive: l.drive }])).values()];
+            liberados = [...new Map(lista.map((l) => [l.id, { id: l.id, drive: l.drive, credenciais: l.credenciais }])).values()];
+        },
+        async tour(utilizadorId) {
+            return tours.get(utilizadorId) ?? null;
+        },
+        async marcarTour(utilizadorId, estado) {
+            tours.set(utilizadorId, estado);
         },
     };
 }
@@ -56,6 +63,10 @@ export function armazemEmMemoria() {
  * No Supabase do cliente, nas tabelas de `sql/componente-mube.sql`. Use o
  * cliente com a service role: as tabelas têm RLS ligada e nenhuma política.
  */
+/** A coluna ainda não existe (o SQL do pacote não foi reaplicado depois de atualizar). */
+const semColuna = (error) => ["42703", "PGRST204"].includes(error?.code ?? "");
+/** A tabela ainda não existe (idem). */
+const semTabela = (error) => ["42P01", "PGRST205"].includes(error?.code ?? "");
 export function armazemSupabase(supabase, opcoes = {}) {
     const t = (nome) => `${opcoes.prefixo ?? "mube_"}${nome}`;
     const falhou = (error) => {
@@ -133,12 +144,19 @@ export function armazemSupabase(supabase, opcoes = {}) {
             falhou(error);
         },
         async liberados() {
-            const { data, error } = await supabase.from(t("liberados")).select("utilizador_id, drive");
+            let { data, error } = await supabase.from(t("liberados")).select("utilizador_id, drive, credenciais");
+            // Sem o SQL da versão com credenciais (S63) reaplicado: lê-se sem a coluna.
+            if (semColuna(error))
+                ({ data, error } = await supabase.from(t("liberados")).select("utilizador_id, drive"));
             falhou(error);
-            return (data ?? []).map((l) => ({ id: l.utilizador_id, drive: l.drive !== false }));
+            return (data ?? []).map((l) => ({
+                id: l.utilizador_id,
+                drive: l.drive !== false,
+                credenciais: l.credenciais === true,
+            }));
         },
         async definirLiberados(lista) {
-            const novos = new Map(lista.map((l) => [l.id, l.drive]));
+            const novos = new Map(lista.map((l) => [l.id, l]));
             const { data, error: e0 } = await supabase.from(t("liberados")).select("utilizador_id");
             falhou(e0);
             const atuais = (data ?? []).map((l) => l.utilizador_id);
@@ -148,11 +166,26 @@ export function armazemSupabase(supabase, opcoes = {}) {
                 falhou(error);
             }
             if (novos.size) {
-                const { error } = await supabase
-                    .from(t("liberados"))
-                    .upsert([...novos].map(([id, drive]) => ({ utilizador_id: id, drive })), { onConflict: "utilizador_id" });
+                const linhas = [...novos.values()].map((l) => ({ utilizador_id: l.id, drive: l.drive, credenciais: l.credenciais }));
+                let { error } = await supabase.from(t("liberados")).upsert(linhas, { onConflict: "utilizador_id" });
+                if (semColuna(error))
+                    ({ error } = await supabase.from(t("liberados")).upsert(linhas.map(({ credenciais: _c, ...l }) => (void _c, l)), { onConflict: "utilizador_id" }));
                 falhou(error);
             }
+        },
+        async tour(utilizadorId) {
+            const { data, error } = await supabase.from(t("tour")).select("estado").eq("utilizador_id", utilizadorId).maybeSingle();
+            // Sem a tabela (SQL por reaplicar), o banner aparece: não se parte nada.
+            if (semTabela(error))
+                return null;
+            falhou(error);
+            return data?.estado ?? null;
+        },
+        async marcarTour(utilizadorId, estado) {
+            const { error } = await supabase.from(t("tour")).upsert({ utilizador_id: utilizadorId, estado, em: new Date().toISOString() }, { onConflict: "utilizador_id" });
+            if (semTabela(error))
+                return;
+            falhou(error);
         },
     };
 }

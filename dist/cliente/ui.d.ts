@@ -67,4 +67,13 @@ export declare function dia(iso: string): string;
 export declare const diaEHora: (iso: string) => string;
 export declare function haQuanto(iso: string): string;
 export declare function tamanho(bytes: number): string;
+/**
+ * Para o que tem de ficar por cima de tudo e alinhado com o ecrã (o tour, o
+ * convite): vai para o <body> por portal, fora de qualquer contentor com
+ * transform do software do cliente, e leva as classes do `.mube-c` de onde
+ * saiu (o tema claro ou escuro).
+ */
+export declare function Camada({ children }: {
+    children: ReactNode;
+}): import("react/jsx-runtime").JSX.Element;
 export {};

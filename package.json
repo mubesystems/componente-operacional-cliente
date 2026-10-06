@@ -1,6 +1,6 @@
 {
   "name": "@mubesystems/componente-operacional",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Componente da Mube para o software do cliente: reportar erros, acompanhar, aceitar ou recusar, Drive e notificações.",
   "type": "module",
   "sideEffects": [
@@ -17,6 +17,10 @@
     },
     "./estilos.css": "./dist/estilos.css",
     "./sql/componente-mube.sql": "./dist/sql/componente-mube.sql"
+  },
+  "dependencies": {
+    "@remotion/player": "4.0.515",
+    "remotion": "4.0.515"
   },
   "peerDependencies": {
     "react": ">=19",

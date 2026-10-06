@@ -75,6 +75,12 @@ export function criarApi(base) {
         marcarLidas: (ids) => pedir("POST", "notificacoes/lidas", { ids }),
         acessos: () => pedir("GET", "acessos"),
         definirAcessos: (acessos) => pedir("PUT", "acessos", { acessos }),
+        credenciais: () => pedir("GET", "credenciais"),
+        marcarTour: (estado) => pedir("POST", "tour", { estado }),
+        enviarCredencial: (corpo) => pedir("POST", "credenciais", corpo),
+        editarCredencial: (id, corpo) => pedir("PUT", `credenciais/${id}`, corpo),
+        revelarCredencial: (id) => pedir("POST", `credenciais/${id}/revelar`, {}),
+        retirarCredencial: (id) => pedir("DELETE", `credenciais/${id}`, {}),
         enviar,
     };
 }

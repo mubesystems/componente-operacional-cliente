@@ -28,8 +28,8 @@ export interface ConfiguracaoMube {
     projetoId?: string;
     /**
      * Quem está com sessão no software do cliente. Sem sessão: null. `gestor`
-     * vê o separador "Acessos"; `liberado` e `drive`, se vierem, sobrepõem-se à
-     * escolha feita lá (S14, S18).
+     * vê o separador "Acessos"; `liberado`, `drive` e `credenciais`, se vierem,
+     * sobrepõem-se à escolha feita lá (S14, S18, S59, S63).
      */
     utilizador: (request: Request) => Promise<Utilizador | null>;
     /** A equipa do software do cliente, de onde o gestor escolhe quem tem acesso ao suporte. */

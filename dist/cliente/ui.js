@@ -1,6 +1,7 @@
 "use client";
-import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
-import { useEffect, useId, useRef } from "react";
+import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
+import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ICONES } from "../gerado/icones.js";
 export function Icone({ nome, tamanho = 16, className = "", rotulo }) {
     return (_jsx("svg", { width: tamanho, height: tamanho, viewBox: "0 0 16 16", fill: "none", xmlns: "http://www.w3.org/2000/svg", className: `mube:shrink-0 ${className}`, role: rotulo ? "img" : undefined, "aria-label": rotulo, "aria-hidden": rotulo ? undefined : true, dangerouslySetInnerHTML: { __html: ICONES[nome] } }));
@@ -112,4 +113,20 @@ export function tamanho(bytes) {
     if (bytes < 1024 ** 3)
         return `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB`;
     return `${(bytes / 1024 ** 3).toFixed(1).replace(".", ",")} GB`;
+}
+// ─── Camada (desenhada no <body>, com o tema do componente) ──────────────────
+/**
+ * Para o que tem de ficar por cima de tudo e alinhado com o ecrã (o tour, o
+ * convite): vai para o <body> por portal, fora de qualquer contentor com
+ * transform do software do cliente, e leva as classes do `.mube-c` de onde
+ * saiu (o tema claro ou escuro).
+ */
+export function Camada({ children }) {
+    const [classe, setClasse] = useState(null);
+    return (_jsxs(_Fragment, { children: [_jsx("span", { hidden: true, ref: (el) => {
+                    const origem = el?.closest(".mube-c");
+                    if (origem && origem.className !== classe)
+                        setClasse(origem.className);
+                } }), classe !== null &&
+                createPortal(_jsx("div", { className: classe, style: { colorScheme: classe.includes("mube-escuro") ? "dark" : "light" }, children: children }), document.body)] }));
 }

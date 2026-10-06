@@ -51,6 +51,17 @@ create table if not exists public.mube_liberados (
 -- Se a pessoa vê a Drive (só vale com acesso ao suporte). Por omissão, sim.
 alter table public.mube_liberados add column if not exists drive boolean not null default true;
 
+-- Se a pessoa vê e envia as credenciais (domínios, acessos, chaves). Por omissão, não.
+alter table public.mube_liberados add column if not exists credenciais boolean not null default false;
+
+-- O tour guiado do componente: quem já o fez (ou o dispensou), para o banner
+-- não voltar a aparecer. Só aqui; nunca vai à plataforma.
+create table if not exists public.mube_tour (
+  utilizador_id text primary key,
+  estado        text not null check (estado in ('concluido', 'dispensado')),
+  em            timestamptz not null default now()
+);
+
 create table if not exists public.mube_estado (
   chave text primary key,
   valor jsonb
@@ -62,7 +73,8 @@ alter table public.mube_notificacoes       enable row level security;
 alter table public.mube_notificacoes_lidas enable row level security;
 alter table public.mube_estado             enable row level security;
 alter table public.mube_liberados          enable row level security;
+alter table public.mube_tour               enable row level security;
 
 revoke all on public.mube_tickets, public.mube_eventos, public.mube_notificacoes,
-              public.mube_notificacoes_lidas, public.mube_estado, public.mube_liberados
+              public.mube_notificacoes_lidas, public.mube_estado, public.mube_liberados, public.mube_tour
   from anon, authenticated;
