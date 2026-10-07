@@ -22,7 +22,7 @@ O navegador nunca vê a chave do projeto: fala só com o servidor do próprio so
 Está no repositório público [`mubesystems/componente-operacional-cliente`](https://github.com/mubesystems/componente-operacional-cliente), já construído, com uma tag por versão. Instala-se direto do GitHub, **sem tokens** nem `.npmrc`:
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.2.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.2.1
 ```
 
 Usa a última versão das [tags do repositório](https://github.com/mubesystems/componente-operacional-cliente/tags) (a `v0.1.0` não funciona fora de um bundler). Para atualizar, troca a tag pela versão nova. Quando a versão nova traz colunas novas, corre outra vez o SQL do passo 3.

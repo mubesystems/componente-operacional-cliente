@@ -342,7 +342,8 @@ function semUrls(t) {
 function paraQuem(n, utilizadorId) {
     if (n.tipo !== "comentario" || !n.mencionados?.includes(utilizadorId))
         return n;
-    const codigo = n.ticket_numero ? `COR-${String(n.ticket_numero).padStart(3, "0")}` : null;
+    // O código (QRE-12) vem da plataforma e abre o corpo da resposta: "QRE-12: “…”".
+    const codigo = n.ticket_numero ? (n.corpo?.match(/^([A-Z][A-Z0-9]{1,5}-\d+):/)?.[1] ?? `#${n.ticket_numero}`) : null;
     return { ...n, tipo: "mencao", titulo: codigo ? `Menção da equipa em ${codigo}` : "Menção da equipa" };
 }
 function notificacaoDoEvento(evento) {

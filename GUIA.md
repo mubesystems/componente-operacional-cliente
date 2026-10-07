@@ -48,7 +48,7 @@ A chave mostra-se **uma vez** ao ser criada. Guarda-a já nas variáveis do proj
 ### 3.1 O pacote
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.2.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.2.1
 ```
 
 Usa sempre a **última tag** do repositório ([lista de versões](https://github.com/mubesystems/componente-operacional-cliente/tags)). Não é preciso `.npmrc` nem token.

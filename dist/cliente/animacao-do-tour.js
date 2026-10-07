@@ -56,7 +56,7 @@ function CenaDaNotificacao({ frame }) {
     // A de trás já lá estava; a nova cai por cima com uma mola.
     const chega = interpolate(f, [10, 34], [0, 1], { ...preso, easing: Easing.out(Easing.back(1.6)) });
     const toque = interpolate(f, [34, 40, 48], [0, 1, 0], preso);
-    return (_jsxs(_Fragment, { children: [_jsx(Cartao, { y: 68, titulo: "Estado atualizado", texto: "COR-011 passou para Corre\u00E7\u00E3o.", icone: "Refresh", tile: "mube:bg-tile-navy", opacidade: 0.55, escala: 0.92, deslize: 12 }), _jsx(Cartao, { y: 48, titulo: "Nova resposta da equipa \u00B7 COR-012", texto: "J\u00E1 est\u00E1 corrigido, pode testar?", icone: "Bell", tile: "mube:bg-tile-teal", opacidade: chega, deslize: (1 - chega) * -44, escala: 1 + toque * 0.03 })] }));
+    return (_jsxs(_Fragment, { children: [_jsx(Cartao, { y: 68, titulo: "Estado atualizado", texto: "LOJA-11 passou para Corre\u00E7\u00E3o.", icone: "Refresh", tile: "mube:bg-tile-navy", opacidade: 0.55, escala: 0.92, deslize: 12 }), _jsx(Cartao, { y: 48, titulo: "Nova resposta da equipa \u00B7 LOJA-12", texto: "J\u00E1 est\u00E1 corrigido, pode testar?", icone: "Bell", tile: "mube:bg-tile-teal", opacidade: chega, deslize: (1 - chega) * -44, escala: 1 + toque * 0.03 })] }));
 }
 // ─── Cena 3: o comentário e a resposta ───────────────────────────────────────
 function Balao({ lado, texto, quem, x, y, largura, opacidade, deslize }) {
