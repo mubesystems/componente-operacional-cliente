@@ -1,6 +1,6 @@
 "use client";
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
-import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { Acessos } from "./acessos.js";
 import { criarApi } from "./api.js";
@@ -22,69 +22,142 @@ const A_CADA_MS = 30_000;
 /** Avisa as outras peças da página (o aviso flutuante, o item do menu) de que os avisos mudaram. */
 const EVENTO = "mube:avisos";
 const SEM_SESSAO = { utilizador: null, liberado: false, drive: false, credenciais: false, gestor: false };
-// ─── O núcleo: a sessão e os avisos, lidos da parte servidor do software ────
-function useMotor(base, { ativo = true, cadencia = A_CADA_MS } = {}) {
-    const api = useMemo(() => criarApi(base), [base]);
-    const [sessao, setSessao] = useState(null);
-    const [avisos, setAvisos] = useState([]);
-    const [versao, setVersao] = useState(0);
-    const [pedidoDeSessao, setPedidoDeSessao] = useState(0);
-    // Quem é esta peça e quantos avisos por ler tem agora (para não se responder a si própria).
-    const eu = useRef(useId());
-    const porLerAgora = useRef(0);
-    const recarregarAvisos = useCallback(() => {
-        api
-            .notificacoes()
-            .then((r) => {
-            setAvisos((antes) => {
-                // Um aviso novo: as listas abertas recarregam.
-                if (r.notificacoes[0]?.id !== antes[0]?.id)
-                    setVersao((v) => v + 1);
-                return r.notificacoes;
-            });
-            const porLer = r.notificacoes.filter((n) => !n.lida).length;
-            porLerAgora.current = porLer;
-            window.dispatchEvent(new CustomEvent(EVENTO, { detail: { fonte: eu.current, porLer } }));
-        })
-            .catch(() => undefined);
-    }, [api]);
-    useEffect(() => {
-        let vivo = true;
-        api
-            .sessao()
-            .then((s) => {
-            if (!vivo)
+const motores = new Map();
+function motorDe(base) {
+    const existente = motores.get(base);
+    if (existente)
+        return existente;
+    const m = {
+        api: criarApi(base),
+        estado: { sessao: null, avisos: [], versao: 0 },
+        ouvintes: new Set(),
+        cadencias: new Map(),
+        pedidoDeSessao: null,
+        pedidoDeAvisos: null,
+        relogio: null,
+        eu: `motor:${base}`,
+        porLerAgora: 0,
+        recarregarAvisos: () => {
+            // Um pedido de cada vez: quem chama durante um pedido recebe o mesmo resultado.
+            if (m.pedidoDeAvisos)
                 return;
-            setSessao(s);
-            if (s.liberado)
-                recarregarAvisos();
-        })
-            .catch(() => vivo && setSessao(SEM_SESSAO));
-        return () => {
-            vivo = false;
-        };
-    }, [api, recarregarAvisos, pedidoDeSessao]);
-    // As novidades chegam à cópia por webhook; aqui só se volta a ler.
-    useEffect(() => {
-        if (!sessao?.liberado || !ativo)
+            m.pedidoDeAvisos = m.api
+                .notificacoes()
+                .then((r) => {
+                const antes = m.estado.avisos;
+                // Um aviso novo: as listas abertas recarregam.
+                const versao = r.notificacoes[0]?.id !== antes[0]?.id ? m.estado.versao + 1 : m.estado.versao;
+                mudar(m, { avisos: r.notificacoes, versao });
+                const porLer = r.notificacoes.filter((n) => !n.lida).length;
+                m.porLerAgora = porLer;
+                window.dispatchEvent(new CustomEvent(EVENTO, { detail: { fonte: m.eu, porLer } }));
+            })
+                .catch(() => undefined)
+                .finally(() => {
+                m.pedidoDeAvisos = null;
+            });
+        },
+        recarregarSessao: () => {
+            m.pedidoDeSessao = null;
+            carregarSessao(m);
+        },
+    };
+    motores.set(base, m);
+    return m;
+}
+function mudar(m, parte) {
+    m.estado = { ...m.estado, ...parte };
+    for (const ouvir of m.ouvintes)
+        ouvir();
+    acertarRelogio(m);
+}
+function carregarSessao(m) {
+    if (m.pedidoDeSessao)
+        return;
+    const pedido = m.api
+        .sessao()
+        .then((s) => {
+        if (m.pedidoDeSessao !== pedido)
+            return; // houve um recarregar entretanto
+        mudar(m, { sessao: s });
+        if (s.liberado)
+            m.recarregarAvisos();
+    })
+        .catch(() => {
+        if (m.pedidoDeSessao !== pedido)
             return;
-        const id = window.setInterval(recarregarAvisos, cadencia);
-        const aoVoltar = () => document.visibilityState === "visible" && recarregarAvisos();
-        // Outra peça leu ou marcou avisos (ex.: a página do suporte): volta-se a ler já, se a contagem for outra.
-        const aoMudar = (e) => {
-            const { fonte, porLer } = e.detail;
-            if (fonte !== eu.current && porLer !== porLerAgora.current)
-                recarregarAvisos();
-        };
-        document.addEventListener("visibilitychange", aoVoltar);
-        window.addEventListener(EVENTO, aoMudar);
+        m.pedidoDeSessao = null; // falhou: a próxima peça a montar tenta de novo
+        mudar(m, { sessao: SEM_SESSAO });
+    });
+    m.pedidoDeSessao = pedido;
+}
+// As novidades chegam à cópia por webhook; aqui só se volta a ler.
+function acertarRelogio(m) {
+    const cadencia = m.estado.sessao?.liberado && m.cadencias.size ? Math.min(...m.cadencias.values()) : null;
+    if (m.relogio && m.relogio.cadencia === cadencia)
+        return;
+    if (m.relogio)
+        window.clearInterval(m.relogio.id);
+    m.relogio = cadencia == null ? null : { id: window.setInterval(m.recarregarAvisos, cadencia), cadencia };
+}
+// Um único par de ouvintes por página: voltar ao separador e os avisos de
+// outros motores (outra `base`, ou uma versão antiga do componente).
+let ouvintesGlobais = false;
+function ligarOuvintesGlobais() {
+    if (ouvintesGlobais || typeof window === "undefined")
+        return;
+    ouvintesGlobais = true;
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState !== "visible")
+            return;
+        for (const m of motores.values())
+            if (m.relogio)
+                m.recarregarAvisos();
+    });
+    window.addEventListener(EVENTO, (e) => {
+        const { fonte, porLer } = e.detail;
+        for (const m of motores.values()) {
+            if (m.relogio && fonte !== m.eu && porLer !== m.porLerAgora)
+                m.recarregarAvisos();
+        }
+    });
+}
+const ESTADO_DO_SERVIDOR = { sessao: null, avisos: [], versao: 0 };
+function useMotor(base, { ativo = true, cadencia = A_CADA_MS } = {}) {
+    const m = useMemo(() => motorDe(base), [base]);
+    const subscrever = useCallback((avisar) => {
+        m.ouvintes.add(avisar);
         return () => {
-            window.clearInterval(id);
-            document.removeEventListener("visibilitychange", aoVoltar);
-            window.removeEventListener(EVENTO, aoMudar);
+            m.ouvintes.delete(avisar);
         };
-    }, [sessao?.liberado, ativo, cadencia, recarregarAvisos]);
-    return { api, sessao, avisos, versao, recarregarAvisos, recarregarSessao: () => setPedidoDeSessao((n) => n + 1) };
+    }, [m]);
+    const estado = useSyncExternalStore(subscrever, () => m.estado, () => ESTADO_DO_SERVIDOR);
+    useEffect(() => {
+        ligarOuvintesGlobais();
+        if (!m.estado.sessao || !m.pedidoDeSessao)
+            carregarSessao(m);
+    }, [m]);
+    // Esta peça entra no relógio partilhado enquanto estiver ativa.
+    const eu = useRef(Symbol("peça"));
+    useEffect(() => {
+        if (!ativo)
+            return;
+        const chave = eu.current;
+        m.cadencias.set(chave, cadencia);
+        acertarRelogio(m);
+        return () => {
+            m.cadencias.delete(chave);
+            acertarRelogio(m);
+        };
+    }, [m, ativo, cadencia]);
+    return {
+        api: m.api,
+        sessao: estado.sessao,
+        avisos: estado.avisos,
+        versao: estado.versao,
+        recarregarAvisos: m.recarregarAvisos,
+        recarregarSessao: m.recarregarSessao,
+    };
 }
 function useNoNavegador() {
     return useSyncExternalStore(() => () => { }, () => true, () => false);
