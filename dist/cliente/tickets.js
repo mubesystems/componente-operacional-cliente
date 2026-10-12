@@ -2,6 +2,7 @@
 import { jsx as _jsx, jsxs as _jsxs, Fragment as _Fragment } from "react/jsx-runtime";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSuporte } from "./componente.js";
+import { CartoesDosLinks, Markdown } from "./markdown.js";
 import { Anexos } from "./multimedia.js";
 import { GravadorDeAudio, ListaDeEnvios, NovoRelato, useEnvios } from "./relato.js";
 import { Botao, BotaoIcone, dia, diaEHora, ErroAoCarregar, Esqueleto, ESTADOS_EM_ORDEM, Icone, Janela, Rodinha, rotuloDoEstado, SeloDeEstado, SeloDePrioridade, Vazio, } from "./ui.js";
@@ -137,22 +138,6 @@ function LinhaDoTempo({ ticket }) {
             }), faltam.map((e, i) => (_jsx("li", { className: "mube:flex mube:flex-1 mube:flex-col mube:items-center", children: _jsxs("span", { className: "mube:flex mube:w-full mube:items-center", title: rotuloDoEstado(e), children: [_jsx("span", { className: "mube:h-px mube:flex-1 mube:bg-border" }), _jsx("span", { className: "mube:size-3.5 mube:rounded-full mube:border mube:border-input" }), _jsx("span", { className: `mube:h-px mube:flex-1 ${i === faltam.length - 1 ? "mube:bg-transparent" : "mube:bg-border"}` })] }) }, e)))] }));
 }
 /** Conversa com a equipa (B5, B6): só o externo. A equipa aparece como "Equipa de suporte" (K2). */
-/** O texto do comentário com as menções destacadas; a menção a quem está a ler, mais forte. */
-function CorpoComMencoes({ texto, mencoes, euId }) {
-    const nomes = mencoes.filter((m) => m.nome && texto.includes(`@${m.nome}`)).sort((a, b) => b.nome.length - a.nome.length);
-    if (!nomes.length)
-        return _jsx(_Fragment, { children: texto });
-    const escapar = (n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const porNome = new Map(nomes.map((m) => [`@${m.nome}`, m]));
-    const partes = texto.split(new RegExp(`(@(?:${nomes.map((m) => escapar(m.nome)).join("|")}))`, "g"));
-    return (_jsx(_Fragment, { children: partes.map((parte, i) => {
-            const m = porNome.get(parte);
-            if (!m)
-                return parte;
-            const eu = m.id === euId;
-            return (_jsx("span", { className: `mube:rounded mube:px-0.5 mube:font-semibold ${eu ? "mube:bg-status-info/15 mube:text-status-info" : "mube:text-status-info"}`, children: parte }, i));
-        }) }));
-}
 function Conversa({ ticket, pendente, aoTentarDeNovo, noRail }) {
     const { sessao } = useSuporte();
     const fim = useRef(null);
@@ -172,7 +157,7 @@ function Conversa({ ticket, pendente, aoTentarDeNovo, noRail }) {
     return (_jsxs("section", { className: `mube:flex mube:flex-col mube:gap-3 ${noRail ? "mube:p-4" : "mube:border-t mube:border-border mube:pt-4"}`, children: [!noRail && _jsx("p", { className: "mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: "Conversa com a equipa" }), !ticket.comentarios.length && !pendente && _jsx("p", { className: "mube:text-body-sm mube:text-muted-foreground", children: "Nenhum coment\u00E1rio ainda. Escreva abaixo para falar com a equipa." }), _jsxs("ul", { className: "mube:flex mube:flex-col mube:gap-3", children: [ticket.comentarios.map((c) => {
                         const meu = c.autor.tipo === "cliente" && c.autor.id === sessao.utilizador?.id;
                         const doCliente = c.autor.tipo === "cliente";
-                        return (_jsxs("li", { className: `mube:flex mube:flex-col mube:gap-1 ${doCliente ? "mube:items-end" : "mube:items-start"}`, children: [_jsxs("div", { className: `mube:flex mube:max-w-[85%] mube:flex-col mube:gap-0.5 mube:rounded-2xl mube:px-3 mube:py-2 ${doCliente ? "mube:bg-primary mube:text-primary-foreground" : "mube:bg-muted mube:text-foreground"}`, children: [_jsx("span", { className: `mube:text-body-xs ${doCliente ? "mube:text-primary-foreground/70" : "mube:text-muted-foreground"}`, children: doCliente ? (meu ? "Você" : (c.autor.nome ?? "Cliente")) : "Equipa de suporte" }), c.apagado ? _jsx("span", { className: "mube:text-body-sm mube:italic mube:opacity-70", children: "Mensagem apagada" }) : _jsx("span", { className: "mube:text-body-sm mube:whitespace-pre-wrap", children: _jsx(CorpoComMencoes, { texto: c.corpo ?? "", mencoes: c.mencoes ?? [], euId: sessao.utilizador?.id }) }), !c.apagado && c.anexos.length > 0 && (_jsx("div", { className: doCliente ? "mube:rounded-lg mube:bg-card mube:p-1 mube:text-foreground" : "", children: _jsx(Anexos, { anexos: c.anexos, compacto: true }) }))] }), _jsxs("span", { className: "mube:text-body-xs mube:text-muted-foreground", children: [diaEHora(c.criado_em), c.editado && " · editado"] })] }, c.id));
+                        return (_jsxs("li", { className: `mube:flex mube:flex-col mube:gap-1 ${doCliente ? "mube:items-end" : "mube:items-start"}`, children: [_jsxs("div", { className: `mube:flex mube:max-w-[85%] mube:flex-col mube:gap-0.5 mube:rounded-2xl mube:px-3 mube:py-2 ${doCliente ? "mube:bg-primary mube:text-primary-foreground" : "mube:bg-muted mube:text-foreground"}`, children: [_jsx("span", { className: `mube:text-body-xs ${doCliente ? "mube:text-primary-foreground/70" : "mube:text-muted-foreground"}`, children: doCliente ? (meu ? "Você" : (c.autor.nome ?? "Cliente")) : "Equipa de suporte" }), c.apagado ? (_jsx("span", { className: "mube:text-body-sm mube:italic mube:opacity-70", children: "Mensagem apagada" })) : (_jsxs(_Fragment, { children: [_jsx(Markdown, { texto: c.corpo ?? "", links: ticket.links, mencoes: c.mencoes ?? [], euId: sessao.utilizador?.id, escuro: doCliente }), _jsx(CartoesDosLinks, { texto: c.corpo ?? "", links: ticket.links })] })), !c.apagado && c.anexos.length > 0 && (_jsx("div", { className: doCliente ? "mube:rounded-lg mube:bg-card mube:p-1 mube:text-foreground" : "", children: _jsx(Anexos, { anexos: c.anexos, compacto: true }) }))] }), _jsxs("span", { className: "mube:text-body-xs mube:text-muted-foreground", children: [diaEHora(c.criado_em), c.editado && " · editado"] })] }, c.id));
                     }), pendente?.estado === "a_enviar" && (_jsxs("li", { className: "mube:flex mube:flex-col mube:items-end mube:gap-1 mube:opacity-60", children: [_jsx("div", { className: "mube:max-w-[85%] mube:rounded-2xl mube:bg-primary mube:px-3 mube:py-2 mube:text-body-sm mube:whitespace-pre-wrap mube:text-primary-foreground", children: pendente.corpo }), _jsxs("span", { className: "mube:flex mube:items-center mube:gap-1 mube:text-body-xs mube:text-muted-foreground", children: [_jsx(Rodinha, {}), " A enviar\u2026"] })] })), pendente?.estado === "falhou" && (_jsxs("li", { className: "mube:flex mube:flex-col mube:items-end mube:gap-1", children: [_jsx("div", { className: "mube:max-w-[85%] mube:rounded-2xl mube:border mube:border-destructive mube:px-3 mube:py-2 mube:text-body-sm mube:whitespace-pre-wrap mube:text-foreground", children: pendente.corpo }), _jsxs("span", { className: "mube:flex mube:items-center mube:gap-2 mube:text-body-xs mube:text-status-error", children: ["N\u00E3o foi enviado.", _jsx("button", { type: "button", onClick: aoTentarDeNovo, className: "mube:font-semibold mube:underline", children: "Tentar de novo" })] })] }))] }), _jsx("div", { ref: fim })] }));
 }
 /** A caixa de resposta, fixa no fundo do detalhe, com anexos (clipe ou arrastar). */

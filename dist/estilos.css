@@ -7,6 +7,7 @@
   --mube-container-xs: 20rem;
   --mube-container-sm: 24rem;
   --mube-container-4xl: 56rem;
+  --mube-font-weight-normal: 400;
   --mube-font-weight-semibold: 600;
   --mube-font-weight-extrabold: 800;
   --mube-tracking-wide: 0.025em;
@@ -268,6 +269,9 @@
 .mube\:mx-auto {
   margin-inline: auto;
 }
+.mube\:mx-px {
+  margin-inline: 1px;
+}
 .mube\:my-2 {
   margin-block: calc(var(--mube-spacing) * 2);
 }
@@ -466,6 +470,9 @@
 .mube\:h-\[18px\] {
   height: 18px;
 }
+.mube\:h-\[22px\] {
+  height: 22px;
+}
 .mube\:h-\[72px\] {
   height: 72px;
 }
@@ -514,6 +521,9 @@
 .mube\:min-h-24 {
   min-height: calc(var(--mube-spacing) * 24);
 }
+.mube\:min-h-\[76px\] {
+  min-height: 76px;
+}
 .mube\:min-h-\[640px\] {
   min-height: 640px;
 }
@@ -552,6 +562,12 @@
 }
 .mube\:w-\[30px\] {
   width: 30px;
+}
+.mube\:w-\[76px\] {
+  width: 76px;
+}
+.mube\:w-fit {
+  width: fit-content;
 }
 .mube\:w-full {
   width: 100%;
@@ -629,6 +645,10 @@
   --tw-translate-y: calc(calc(1 / 2 * 100%) * -1);
   translate: var(--tw-translate-x) var(--tw-translate-y);
 }
+.mube\:translate-y-\[3px\] {
+  --tw-translate-y: 3px;
+  translate: var(--tw-translate-x) var(--tw-translate-y);
+}
 .mube\:scale-\[0\.8\] {
   scale: 0.8;
 }
@@ -655,6 +675,12 @@
 }
 .mube\:resize-none {
   resize: none;
+}
+.mube\:list-decimal {
+  list-style-type: decimal;
+}
+.mube\:list-disc {
+  list-style-type: disc;
 }
 .mube\:grid-cols-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -808,6 +834,10 @@
   border-bottom-style: var(--tw-border-style);
   border-bottom-width: 1px;
 }
+.mube\:border-l-2 {
+  border-left-style: var(--tw-border-style);
+  border-left-width: 2px;
+}
 .mube\:border-dashed {
   --tw-border-style: dashed;
   border-style: dashed;
@@ -817,6 +847,18 @@
 }
 .mube\:border-current {
   border-color: currentcolor;
+}
+.mube\:border-current\/20 {
+  border-color: currentcolor;
+  @supports (color: color-mix(in lab, red, red)) {
+    border-color: color-mix(in oklab, currentcolor 20%, transparent);
+  }
+}
+.mube\:border-current\/30 {
+  border-color: currentcolor;
+  @supports (color: color-mix(in lab, red, red)) {
+    border-color: color-mix(in oklab, currentcolor 30%, transparent);
+  }
 }
 .mube\:border-destructive {
   border-color: var(--destructive);
@@ -838,6 +880,12 @@
 }
 .mube\:border-primary {
   border-color: var(--primary);
+}
+.mube\:border-primary-foreground\/25 {
+  border-color: var(--primary-foreground);
+  @supports (color: color-mix(in lab, red, red)) {
+    border-color: color-mix(in oklab, var(--primary-foreground) 25%, transparent);
+  }
 }
 .mube\:border-primary\/60 {
   border-color: var(--primary);
@@ -917,6 +965,12 @@
     background-color: color-mix(in oklab, var(--card) 55%, transparent);
   }
 }
+.mube\:bg-card\/70 {
+  background-color: var(--card);
+  @supports (color: color-mix(in lab, red, red)) {
+    background-color: color-mix(in oklab, var(--card) 70%, transparent);
+  }
+}
 .mube\:bg-card\/85 {
   background-color: var(--card);
   @supports (color: color-mix(in lab, red, red)) {
@@ -927,6 +981,12 @@
   background-color: var(--card);
   @supports (color: color-mix(in lab, red, red)) {
     background-color: color-mix(in oklab, var(--card) 90%, transparent);
+  }
+}
+.mube\:bg-card\/95 {
+  background-color: var(--card);
+  @supports (color: color-mix(in lab, red, red)) {
+    background-color: color-mix(in oklab, var(--card) 95%, transparent);
   }
 }
 .mube\:bg-destructive {
@@ -961,6 +1021,12 @@
 }
 .mube\:bg-primary-foreground {
   background-color: var(--primary-foreground);
+}
+.mube\:bg-primary-foreground\/10 {
+  background-color: var(--primary-foreground);
+  @supports (color: color-mix(in lab, red, red)) {
+    background-color: color-mix(in oklab, var(--primary-foreground) 10%, transparent);
+  }
 }
 .mube\:bg-primary-foreground\/15 {
   background-color: var(--primary-foreground);
@@ -1193,6 +1259,9 @@
 .mube\:px-6 {
   padding-inline: calc(var(--mube-spacing) * 6);
 }
+.mube\:py-0 {
+  padding-block: calc(var(--mube-spacing) * 0);
+}
 .mube\:py-0\.5 {
   padding-block: calc(var(--mube-spacing) * 0.5);
 }
@@ -1225,6 +1294,9 @@
 }
 .mube\:py-12 {
   padding-block: calc(var(--mube-spacing) * 12);
+}
+.mube\:py-px {
+  padding-block: 1px;
 }
 .mube\:pt-0\.5 {
   padding-top: calc(var(--mube-spacing) * 0.5);
@@ -1307,11 +1379,17 @@
 .mube\:pl-4 {
   padding-left: calc(var(--mube-spacing) * 4);
 }
+.mube\:pl-5 {
+  padding-left: calc(var(--mube-spacing) * 5);
+}
 .mube\:text-center {
   text-align: center;
 }
 .mube\:text-left {
   text-align: left;
+}
+.mube\:align-baseline {
+  vertical-align: baseline;
 }
 .mube\:font-mono {
   font-family: var(--mube-fonte-mono, "Geist Mono"), ui-monospace, "SF Mono", Menlo, monospace;
@@ -1370,6 +1448,12 @@
   letter-spacing: var(--tw-tracking, var(--mube-text-mono-sm--letter-spacing));
   font-weight: var(--tw-font-weight, var(--mube-text-mono-sm--font-weight));
 }
+.mube\:text-\[0\.875em\] {
+  font-size: 0.875em;
+}
+.mube\:text-\[0\.8125rem\] {
+  font-size: 0.8125rem;
+}
 .mube\:text-\[9px\] {
   font-size: 9px;
 }
@@ -1393,6 +1477,10 @@
 .mube\:font-extrabold {
   --tw-font-weight: var(--mube-font-weight-extrabold);
   font-weight: var(--mube-font-weight-extrabold);
+}
+.mube\:font-normal {
+  --tw-font-weight: var(--mube-font-weight-normal);
+  font-weight: var(--mube-font-weight-normal);
 }
 .mube\:font-semibold {
   --tw-font-weight: var(--mube-font-weight-semibold);
@@ -1521,6 +1609,9 @@
 .mube\:underline {
   text-decoration-line: underline;
 }
+.mube\:underline-offset-2 {
+  text-underline-offset: 2px;
+}
 .mube\:opacity-50 {
   opacity: 50%;
 }
@@ -1532,6 +1623,9 @@
 }
 .mube\:opacity-75 {
   opacity: 75%;
+}
+.mube\:opacity-80 {
+  opacity: 80%;
 }
 .mube\:shadow-soft-2 {
   --tw-shadow: var(--sombra-soft-2);

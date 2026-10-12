@@ -93,9 +93,21 @@ export interface TicketDetalhe extends TicketResumo {
         envios_com_sucesso: number;
         retido: boolean;
     };
+    /** S74.12: o Open Graph dos links dos comentários, por URL (desde a plataforma de 12/10/2026). */
+    links?: Record<string, PreviaDoLink>;
+}
+/** A pré-visualização de um link de fora, já lida pela plataforma (S74). */
+export interface PreviaDoLink {
+    dominio: string;
+    titulo: string | null;
+    descricao: string | null;
+    imagem: string | null;
+    icone: string | null;
+    site: string | null;
+    video: boolean;
 }
 /** O ticket como fica na cópia do cliente: o detalhe quando já foi lido, senão o resumo. */
-export type TicketNaCopia = TicketResumo & Partial<Pick<TicketDetalhe, "relatos" | "comentarios" | "linha_do_tempo" | "aceite_tacito">>;
+export type TicketNaCopia = TicketResumo & Partial<Pick<TicketDetalhe, "relatos" | "comentarios" | "linha_do_tempo" | "aceite_tacito" | "links">>;
 export interface PastaDaDrive {
     id: string;
     pasta_id: string | null;

@@ -14,6 +14,7 @@
  * um id vindo do navegador.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { textoDoMarkdown } from "../markdown.js";
 export { armazemEmMemoria, armazemSupabase } from "./armazem.js";
 class Falha extends Error {
     estado;
@@ -373,7 +374,8 @@ function notificacaoDoEvento(evento) {
     }
     if (evento.tipo === "comentario_externo") {
         const c = evento.dados.comentario;
-        const texto = (c?.corpo ?? "").replace(/\s+/g, " ").slice(0, 120);
+        // S74.13: o excerto sem as marcas do Markdown.
+        const texto = textoDoMarkdown(c?.corpo, 120);
         // Quem foi mencionado vê este aviso como menção (ver `paraQuem`).
         const mencionados = (c?.mencoes ?? []).map((m) => m.id).filter(Boolean);
         return { ...base, tipo: "comentario", titulo: "Nova resposta da equipa", corpo: `${ticket.codigo}: “${texto}”`, ...(mencionados.length ? { mencionados } : {}) };
