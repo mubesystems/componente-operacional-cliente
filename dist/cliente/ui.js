@@ -50,8 +50,11 @@ const PRIORIDADE = {
 export function SeloDePrioridade({ valor, rotulo }) {
     return _jsx("span", { className: `mube:inline-flex mube:h-5 mube:items-center mube:rounded-full mube:px-2 mube:text-label-sm ${PRIORIDADE[valor] ?? PRIORIDADE.baixa}`, children: rotulo });
 }
-// ─── Janela (Figma: Modal no desktop, sheet no telemóvel) ────────────────────
-export function Janela({ titulo, descricao, aoFechar, rodape, largura = "mube:md:w-[512px]", children, }) {
+/** Por portal no fim da página: nenhum header ou contexto de empilhamento do software a tapa. */
+export function Janela(props) {
+    return (_jsx(Camada, { children: _jsx(CaixaDaJanela, { ...props }) }));
+}
+function CaixaDaJanela({ titulo, descricao, aoFechar, rodape, largura = "mube:md:w-[512px]", children, }) {
     const id = useId();
     const caixa = useRef(null);
     useEffect(() => {

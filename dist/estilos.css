@@ -524,6 +524,9 @@
 .mube\:min-h-\[76px\] {
   min-height: 76px;
 }
+.mube\:min-h-\[480px\] {
+  min-height: 480px;
+}
 .mube\:min-h-\[640px\] {
   min-height: 640px;
 }
@@ -653,7 +656,7 @@
   scale: 0.8;
 }
 .mube\:animar-aparecer {
-  animation: mube-aparecer 200ms ease-out both;
+  animation: mube-aparecer 200ms ease-out backwards;
 }
 .mube\:animar-de-lado {
   animation: mube-de-lado 220ms ease-out both;
@@ -1367,6 +1370,9 @@
 .mube\:pb-24 {
   padding-bottom: calc(var(--mube-spacing) * 24);
 }
+.mube\:pb-\[env\(safe-area-inset-bottom\)\] {
+  padding-bottom: env(safe-area-inset-bottom);
+}
 .mube\:pl-1 {
   padding-left: calc(var(--mube-spacing) * 1);
 }
@@ -1836,6 +1842,16 @@
     }
   }
 }
+.mube\:hover\:bg-primary-foreground\/15 {
+  &:hover {
+    @media (hover: hover) {
+      background-color: var(--primary-foreground);
+      @supports (color: color-mix(in lab, red, red)) {
+        background-color: color-mix(in oklab, var(--primary-foreground) 15%, transparent);
+      }
+    }
+  }
+}
 .mube\:hover\:bg-primary-hover {
   &:hover {
     @media (hover: hover) {
@@ -1877,6 +1893,13 @@
   &:hover {
     @media (hover: hover) {
       color: var(--foreground);
+    }
+  }
+}
+.mube\:hover\:text-primary-foreground {
+  &:hover {
+    @media (hover: hover) {
+      color: var(--primary-foreground);
     }
   }
 }

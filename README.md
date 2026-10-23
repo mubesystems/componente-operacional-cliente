@@ -8,7 +8,7 @@ notificações.
 
 Duas partes:
 
-- **Interface** (`@mubesystems/componente-operacional`): a página `<PaginaMube />`, o `useNovidadesMube()` para o item do menu e o `<AvisoMube />`, que só aparece com novidades. React 19, CSS próprio.
+- **Interface** (`@mubesystems/componente-operacional`): a página `<PaginaMube />` (ocupa a área toda), o `useNovidadesMube()` ou o `<ContadorMube />` para o item do menu e o `<AvisoMube />`, que só aparece com novidades e se pode fechar. React 19, CSS próprio.
 - **Servidor** (`@mubesystems/componente-operacional/servidor`): um Route Handler do Next.js que guarda a chave, fala com a plataforma, recebe o webhook e mantém a cópia do estado no Supabase do cliente.
 
 O navegador nunca vê a chave do projeto: fala só com o servidor do próprio software.
@@ -104,14 +104,15 @@ O suporte é uma página do software, com o atalho no menu; o aviso flutuante s�
 aparece com novidades (ver o passo 3.5 do [`GUIA.md`](GUIA.md)):
 
 ```tsx
-import { AvisoMube, PaginaMube, useNovidadesMube } from "@mubesystems/componente-operacional"
+import { AvisoMube, ContadorMube, PaginaMube, useNovidadesMube } from "@mubesystems/componente-operacional"
 import "@mubesystems/componente-operacional/estilos.css"
 
-// app/(painel)/suporte/page.tsx
-<PaginaMube className="h-[calc(100dvh-8rem)]" />
+// app/(painel)/suporte/page.tsx: ocupa a área toda, sem moldura
+<PaginaMube />
 
 // no menu (componente cliente)
 const { acesso, porLer } = useNovidadesMube()
+// ou só o número ao lado do item: <ContadorMube />
 
 // no layout com sessão
 <AvisoMube href="/suporte" />

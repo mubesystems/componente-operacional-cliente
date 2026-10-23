@@ -123,9 +123,13 @@ O suporte é **uma página** do software, com o atalho **no menu** como os outro
 import { PaginaMube } from "@mubesystems/componente-operacional"
 
 export default function Suporte() {
-  return <PaginaMube className="h-[calc(100dvh-8rem)]" />
+  // Ocupa a área de conteúdo toda (o menu do software fica ao lado). Se o layout
+  // não der altura ao contentor, dá-se aqui: className="h-[calc(100dvh-4rem)]".
+  return <PaginaMube />
 }
 ```
+
+Se o layout do projeto põe margens ou um `max-width` à volta das páginas, a do suporte deve ficar sem eles (como uma página de chat), para o componente encostar às bordas.
 
 **2. O item do menu**, no componente do menu do projeto (é um componente cliente):
 
@@ -136,6 +140,15 @@ import { useNovidadesMube } from "@mubesystems/componente-operacional"
 const { acesso, porLer } = useNovidadesMube()
 // Só aparece a quem tem acesso ao suporte (ou gere os acessos); `porLer` dá o número ao lado.
 {acesso && <ItemDoMenu href="/suporte" rotulo="Suporte" contagem={porLer} />}
+```
+
+Para o número ao lado do item sem o fazer à mão, há o `<ContadorMube />` (some sem novidades):
+
+```tsx
+import { ContadorMube } from "@mubesystems/componente-operacional"
+
+<Link href="/suporte">Suporte <ContadorMube /></Link>
+// Com o estilo do menu do projeto, só o número: <ContadorMube className="ml-auto rounded-full bg-primary px-1.5 text-xs text-primary-foreground" />
 ```
 
 **3. O aviso e o CSS**, no layout da área com sessão:
@@ -156,9 +169,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
 | Peça | Opções | Para quê |
 |---|---|---|
-| `PaginaMube` | `base`, `rotulo`, `tema`, `moldura`, `className` | a página inteira: Tickets, Drive, Credenciais, Notificações, Acessos. Ocupa a altura do contentor (no mínimo 640 px); `className` para a dar; `moldura={false}` tira a borda e os cantos, para ocupar a área toda. Aceita `?secao=notificacoes` (ou `tickets`, `drive`, `credenciais`, `acessos`) e `?ticket=12` no endereço |
+| `PaginaMube` | `base`, `rotulo`, `tema`, `moldura`, `className` | a página inteira: Tickets, Drive, Credenciais, Notificações, Acessos. Ocupa a área e a altura do contentor, sem moldura, com o espaço da barra do iPhone em baixo; `className` para dar a altura; `moldura` põe a borda e os cantos (um cartão, no mínimo 640 px). Os painéis (detalhe do ticket, novo relato, credenciais, ficheiros) abrem no fim da página, por cima de tudo, sem precisar de z-index no projeto. Aceita `?secao=notificacoes` (ou `tickets`, `drive`, `credenciais`, `acessos`) e `?ticket=12` no endereço |
 | `useNovidadesMube` | `base` | `{ acesso, porLer, ultimo, aCarregar }` para o item do menu |
-| `AvisoMube` | `base`, `href`, `rotulo`, `tema`, `posicao` | o aviso no canto, só com novidades; não aparece na própria página |
+| `ContadorMube` | `base`, `className` | o número por ler para o item do menu (99+ acima de 99); sem novidades ou sem acesso, nada. Sem `className`, a pílula do componente; com `className`, só o número, com o estilo do projeto |
+| `AvisoMube` | `base`, `href`, `rotulo`, `tema`, `posicao` | o aviso no canto, só com novidades; não aparece na própria página. O X fecha-o até o navegador fechar. A altura vem de `--mube-aviso-baixo` (por omissão `1.25rem`): no CSS do projeto, ex.: `:root { --mube-aviso-baixo: calc(env(safe-area-inset-bottom) + 5rem) }` para ficar por cima de uma barra de navegação |
+
+**Quem vê cada aviso:** os de um ticket vão a quem o relatou, a quem lá comentou do lado do cliente e a quem a equipa mencionou; o gestor dos acessos vê todos; os que não são de um ticket (ex.: um pedido de credencial) vão a todos com acesso. Só há aviso do que interessa ao cliente: relato recebido, resposta da equipa, pedido de aceite, ticket concluído e encerrado (não das etapas internas).
 
 `base` é o caminho da rota da §3.4 (por omissão `"/api/mube"`); `tema` é `"auto"` (segue a classe `dark` do `<html>`), `"claro"` ou `"escuro"`.
 
@@ -356,6 +372,15 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 3. Se a versão trouxer SQL novo (a Mube diz), **voltar a correr** o `componente-mube.sql` (§3.3). Correr sempre também não faz mal.
 4. Deploy.
 
+### Da 0.2 / 0.3 para a 0.4
+
+- **Sem SQL novo.**
+- **`PaginaMube` sem moldura por omissão**, a ocupar a área toda: quem tinha `moldura={false}` pode tirá-lo; quem quer o cartão passa `moldura`.
+- **Tirar os remendos de CSS**, se os houver: o z-index dos painéis (agora abrem no fim da página) e o `animation-fill-mode` do `animar-aparecer` (já vem certo).
+- **A altura do aviso** passa a ser a variável `--mube-aviso-baixo` (§3.5). Um seletor de CSS sobre o `<a>` fixo do aviso deixa de funcionar: o aviso tem agora o botão de fechar ao lado do link.
+- **`<ContadorMube />`** para o número no item do menu, se se quiser trocar o feito à mão.
+- **Menos avisos:** cada pessoa só vê os dos seus tickets (o gestor vê todos) e as etapas internas deixam de avisar. Os avisos antigos também se arrumam.
+
 ### Da 0.1 para a 0.2
 
 - **SQL novo:** reaplicar o `componente-mube.sql` (acrescenta `mube_liberados.credenciais` e a tabela `mube_tour`). Sem isto continua a funcionar, mas sem as Credenciais e com o convite ao tour sempre à vista.
@@ -390,7 +415,7 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 - [ ] `MUBE_URL`, `MUBE_CLIENTE_ID`, `MUBE_PROJETO_ID`, `MUBE_CHAVE` no servidor (local e produção)
 - [ ] SQL corrido no Supabase do projeto
 - [ ] Rota `app/api/mube/[...caminho]/route.ts` com `utilizador` e `equipa`
-- [ ] A página com o `<PaginaMube />`, o item "Suporte" no menu (`useNovidadesMube`) e o `<AvisoMube />` com o CSS no layout com sessão
+- [ ] A página com o `<PaginaMube />` (sem margens do layout à volta), o item "Suporte" no menu (`useNovidadesMube` ou `<ContadorMube />`) e o `<AvisoMube />` com o CSS no layout com sessão
 - [ ] `/api/mube/webhook` fora do login no middleware
 - [ ] URL do webhook guardado no Operacional
 - [ ] Acessos escolhidos pelo gestor

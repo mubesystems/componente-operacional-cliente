@@ -41,7 +41,10 @@ export declare function SeloDePrioridade({ valor, rotulo }: {
     valor: string;
     rotulo: string;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function Janela({ titulo, descricao, aoFechar, rodape, largura, children, }: {
+type PropsDaJanela = Parameters<typeof CaixaDaJanela>[0];
+/** Por portal no fim da página: nenhum header ou contexto de empilhamento do software a tapa. */
+export declare function Janela(props: PropsDaJanela): import("react/jsx-runtime").JSX.Element;
+declare function CaixaDaJanela({ titulo, descricao, aoFechar, rodape, largura, children, }: {
     titulo: string;
     descricao?: ReactNode;
     aoFechar: () => void;

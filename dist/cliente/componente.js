@@ -248,13 +248,16 @@ function Superficie({ motor, sessao, rotulo, modo, aoFechar, }) {
  *
  * Aceita `?secao=notificacoes` (ou tickets, drive, credenciais, acessos) e
  * `?ticket=12` no endereço, para os atalhos levarem ao sítio certo.
+ *
+ * Por omissão ocupa a área de conteúdo toda, sem moldura (o menu do software
+ * fica ao lado), com o espaço da barra do iPhone reservado em baixo.
  */
-export function PaginaMube({ base = "/api/mube", rotulo = "Suporte", tema = "auto", moldura = true, className = "", }) {
+export function PaginaMube({ base = "/api/mube", rotulo = "Suporte", tema = "auto", moldura = false, className = "", }) {
     const motor = useMotor(base);
     const escuro = useEscuro(tema);
     const noNavegador = useNoNavegador();
     const sessao = motor.sessao;
-    return (_jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""} ${className}`, style: { colorScheme: escuro ? "dark" : "light", height: className ? undefined : "100%" }, children: _jsx("div", { className: `mube:flex mube:h-full mube:min-h-[640px] mube:w-full mube:overflow-hidden mube:bg-card mube:animar-aparecer ${moldura ? "mube:rounded-[20px] mube:border mube:border-border" : ""}`, children: !noNavegador || !sessao ? (_jsx("div", { "aria-busy": "true", className: "mube:flex mube:flex-1 mube:items-center mube:justify-center", children: _jsx("span", { className: "mube:size-5 mube:animate-spin mube:rounded-full mube:border-2 mube:border-muted-foreground mube:border-t-transparent" }) })) : !sessao.utilizador ? (_jsx(Vazio, { icone: "Inbox", titulo: "Entre no software para usar o suporte" })) : (_jsx(Superficie, { motor: motor, sessao: sessao, rotulo: rotulo, modo: "pagina" })) }) }));
+    return (_jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""} ${className}`, style: { colorScheme: escuro ? "dark" : "light", height: className ? undefined : "100%" }, children: _jsx("div", { className: `mube:flex mube:h-full mube:w-full mube:overflow-hidden mube:bg-card mube:animar-aparecer ${moldura ? "mube:min-h-[640px] mube:rounded-[20px] mube:border mube:border-border" : "mube:min-h-[480px] mube:pb-[env(safe-area-inset-bottom)]"}`, children: !noNavegador || !sessao ? (_jsx("div", { "aria-busy": "true", className: "mube:flex mube:flex-1 mube:items-center mube:justify-center", children: _jsx("span", { className: "mube:size-5 mube:animate-spin mube:rounded-full mube:border-2 mube:border-muted-foreground mube:border-t-transparent" }) })) : !sessao.utilizador ? (_jsx(Vazio, { icone: "Inbox", titulo: "Entre no software para usar o suporte" })) : (_jsx(Superficie, { motor: motor, sessao: sessao, rotulo: rotulo, modo: "pagina" })) }) }));
 }
 // ─── O atalho no menu e o aviso flutuante ────────────────────────────────────
 /**
@@ -277,9 +280,39 @@ export function useNovidadesMube({ base = "/api/mube" } = {}) {
     };
 }
 /**
+ * O número de novidades por ler, para pôr ao lado do item do menu. Não
+ * aparece sem novidades nem a quem não tem acesso ao suporte.
+ *
+ *   <Link href="/suporte">Suporte <ContadorMube /></Link>
+ *
+ * Por omissão é a pílula do componente; com `className`, só o número, com o
+ * estilo do software (ex.: `<ContadorMube className="ml-auto rounded-full bg-primary px-1.5 text-xs" />`).
+ */
+export function ContadorMube({ base = "/api/mube", className }) {
+    const { acesso, porLer } = useNovidadesMube({ base });
+    const noNavegador = useNoNavegador();
+    const escuro = useEscuro("auto");
+    if (!noNavegador || !acesso || !porLer)
+        return null;
+    const numero = porLer > 99 ? "99+" : porLer;
+    const rotulo = porLer === 1 ? "1 novidade" : `${porLer} novidades`;
+    if (className) {
+        return (_jsx("span", { className: className, "aria-label": rotulo, children: numero }));
+    }
+    return (_jsx("span", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "inline-flex" }, children: _jsx("span", { "aria-label": rotulo, className: "mube:flex mube:h-5 mube:min-w-5 mube:items-center mube:justify-center mube:rounded-full mube:bg-primary mube:px-1.5 mube:text-label-sm mube:text-primary-foreground", children: numero }) }));
+}
+/**
+ * Fechado pela pessoa: num cookie de sessão (sem validade), que vale para
+ * todos os separadores e acaba quando o navegador fecha. No acesso seguinte,
+ * o aviso volta a aparecer.
+ */
+const COOKIE_FECHADO = "mube_aviso_fechado";
+const avisoFechado = () => typeof document !== "undefined" && document.cookie.split("; ").includes(`${COOKIE_FECHADO}=1`);
+/**
  * O aviso flutuante: só aparece quando há novidades por ler (uma resposta da
  * equipa, uma mudança de estado, um pedido de aceite ou de credencial) e leva
- * à página do suporte, às Notificações. Não aparece na própria página.
+ * à página do suporte, às Notificações. Não aparece na própria página, e o X
+ * fecha-o até ao próximo acesso.
  */
 export function AvisoMube({ base = "/api/mube", href = "/suporte", rotulo = "Suporte", tema = "auto", posicao = "direita", }) {
     const { porLer, ultimo } = useNovidadesMube({ base });
@@ -287,10 +320,15 @@ export function AvisoMube({ base = "/api/mube", href = "/suporte", rotulo = "Sup
     const noNavegador = useNoNavegador();
     const caminho = useCaminho();
     const naPagina = caminho.replace(/\/$/, "") === href.split("?")[0].replace(/\/$/, "");
-    if (!noNavegador || !porLer || naPagina)
+    const [fechado, setFechado] = useState(avisoFechado);
+    if (!noNavegador || !porLer || naPagina || fechado)
         return null;
     const destino = `${href}${href.includes("?") ? "&" : "?"}secao=notificacoes`;
-    return createPortal(_jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { colorScheme: escuro ? "dark" : "light" }, children: _jsxs("a", { href: destino, "aria-label": `${rotulo}: ${porLer === 1 ? "1 novidade" : `${porLer} novidades`}`, className: `mube:fixed mube:bottom-5 mube:z-[2147483000] mube:flex mube:max-w-[calc(100vw-2.5rem)] mube:items-center mube:gap-3 mube:rounded-full mube:bg-primary mube:py-1.5 mube:pr-2 mube:pl-1.5 mube:text-primary-foreground mube:no-underline mube:shadow-soft-5 mube:transition-transform mube:duration-200 mube:animar-entrar mube:hover:-translate-y-0.5 mube:focus-visible:shadow-focus ${posicao === "direita" ? "mube:right-5" : "mube:left-5"}`, children: [_jsxs("span", { className: "mube:relative mube:flex mube:size-8 mube:shrink-0 mube:items-center mube:justify-center mube:rounded-full mube:bg-primary-foreground/15", children: [_jsx(Icone, { nome: "Bell" }), _jsx("span", { "aria-hidden": true, className: "mube:absolute mube:top-0.5 mube:right-0.5 mube:size-2 mube:animate-ping mube:rounded-full mube:bg-primary-foreground/80" })] }), _jsxs("span", { className: "mube:flex mube:min-w-0 mube:flex-col mube:leading-tight", children: [_jsx("span", { className: "mube:text-label", children: porLer === 1 ? "1 novidade no suporte" : `${porLer} novidades no suporte` }), ultimo && _jsx("span", { className: "mube:truncate mube:text-label-sm mube:opacity-75", children: ultimo.titulo })] }), _jsx("span", { className: "mube:flex mube:h-6 mube:min-w-6 mube:items-center mube:justify-center mube:rounded-full mube:bg-primary-foreground mube:px-2 mube:text-label-sm mube:text-primary", children: porLer > 99 ? "99+" : porLer })] }) }), document.body);
+    const fechar = () => {
+        document.cookie = `${COOKIE_FECHADO}=1; path=/; SameSite=Lax`;
+        setFechado(true);
+    };
+    return createPortal(_jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { colorScheme: escuro ? "dark" : "light" }, children: _jsxs("div", { "data-mube-aviso": "", style: { bottom: "var(--mube-aviso-baixo, 1.25rem)" }, className: `mube:fixed mube:z-[2147483000] mube:flex mube:max-w-[calc(100vw-2.5rem)] mube:items-center mube:gap-1 mube:rounded-full mube:bg-primary mube:py-1.5 mube:pr-1.5 mube:pl-1.5 mube:text-primary-foreground mube:shadow-soft-5 mube:transition-transform mube:duration-200 mube:animar-entrar mube:hover:-translate-y-0.5 ${posicao === "direita" ? "mube:right-5" : "mube:left-5"}`, children: [_jsxs("a", { href: destino, "aria-label": `${rotulo}: ${porLer === 1 ? "1 novidade" : `${porLer} novidades`}`, className: "mube:flex mube:min-w-0 mube:items-center mube:gap-3 mube:rounded-full mube:pr-1 mube:text-primary-foreground mube:no-underline mube:focus-visible:shadow-focus", children: [_jsxs("span", { className: "mube:relative mube:flex mube:size-8 mube:shrink-0 mube:items-center mube:justify-center mube:rounded-full mube:bg-primary-foreground/15", children: [_jsx(Icone, { nome: "Bell" }), _jsx("span", { "aria-hidden": true, className: "mube:absolute mube:top-0.5 mube:right-0.5 mube:size-2 mube:animate-ping mube:rounded-full mube:bg-primary-foreground/80" })] }), _jsxs("span", { className: "mube:flex mube:min-w-0 mube:flex-col mube:leading-tight", children: [_jsx("span", { className: "mube:text-label", children: porLer === 1 ? "1 novidade no suporte" : `${porLer} novidades no suporte` }), ultimo && _jsx("span", { className: "mube:truncate mube:text-label-sm mube:opacity-75", children: ultimo.titulo })] }), _jsx("span", { className: "mube:flex mube:h-6 mube:min-w-6 mube:shrink-0 mube:items-center mube:justify-center mube:rounded-full mube:bg-primary-foreground mube:px-2 mube:text-label-sm mube:text-primary", children: porLer > 99 ? "99+" : porLer })] }), _jsx("button", { type: "button", onClick: fechar, "aria-label": "Fechar o aviso", title: "Fechar", className: "mube:flex mube:size-7 mube:shrink-0 mube:items-center mube:justify-center mube:rounded-full mube:text-primary-foreground/70 mube:transition-colors mube:duration-150 mube:hover:bg-primary-foreground/15 mube:hover:text-primary-foreground mube:focus-visible:shadow-focus", children: _jsx(Icone, { nome: "X", tamanho: 14 }) })] }) }), document.body);
 }
 /** O caminho atual, também nas navegações do cliente (pushState) sem recarregar. */
 function useCaminho() {

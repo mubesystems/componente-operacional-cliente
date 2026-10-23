@@ -27,6 +27,9 @@ type Tema = "claro" | "escuro" | "auto";
  *
  * Aceita `?secao=notificacoes` (ou tickets, drive, credenciais, acessos) e
  * `?ticket=12` no endereço, para os atalhos levarem ao sítio certo.
+ *
+ * Por omissão ocupa a área de conteúdo toda, sem moldura (o menu do software
+ * fica ao lado), com o espaço da barra do iPhone reservado em baixo.
  */
 export declare function PaginaMube({ base, rotulo, tema, moldura, className, }: {
     /** Onde está montada a parte servidor (o Route Handler `[...caminho]`). */
@@ -34,9 +37,9 @@ export declare function PaginaMube({ base, rotulo, tema, moldura, className, }: 
     rotulo?: string;
     /** "auto" segue a página (a classe `dark` do <html>). */
     tema?: Tema;
-    /** Com a borda e os cantos arredondados (um cartão dentro da página); `false` ocupa a área toda, sem moldura. */
+    /** `true`: com a borda e os cantos arredondados (um cartão dentro da página). Por omissão, a área toda, sem moldura. */
     moldura?: boolean;
-    /** Para dar a altura (por omissão, pelo menos 640 px e a altura do contentor). */
+    /** Para dar a altura (por omissão, a altura do contentor). */
     className?: string;
 }): import("react/jsx-runtime").JSX.Element;
 /**
@@ -58,9 +61,23 @@ export declare function useNovidadesMube({ base }?: {
     ultimo: NotificacaoLida | null;
 };
 /**
+ * O número de novidades por ler, para pôr ao lado do item do menu. Não
+ * aparece sem novidades nem a quem não tem acesso ao suporte.
+ *
+ *   <Link href="/suporte">Suporte <ContadorMube /></Link>
+ *
+ * Por omissão é a pílula do componente; com `className`, só o número, com o
+ * estilo do software (ex.: `<ContadorMube className="ml-auto rounded-full bg-primary px-1.5 text-xs" />`).
+ */
+export declare function ContadorMube({ base, className }: {
+    base?: string;
+    className?: string;
+}): import("react/jsx-runtime").JSX.Element | null;
+/**
  * O aviso flutuante: só aparece quando há novidades por ler (uma resposta da
  * equipa, uma mudança de estado, um pedido de aceite ou de credencial) e leva
- * à página do suporte, às Notificações. Não aparece na própria página.
+ * à página do suporte, às Notificações. Não aparece na própria página, e o X
+ * fecha-o até ao próximo acesso.
  */
 export declare function AvisoMube({ base, href, rotulo, tema, posicao, }: {
     base?: string;

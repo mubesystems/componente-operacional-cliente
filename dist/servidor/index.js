@@ -193,7 +193,8 @@ export function criarRotasMube(config) {
                 if (!(await armazem.sincronizado()))
                     await sincronizar().catch(() => undefined);
                 const [tickets, avisos] = await Promise.all([armazem.tickets(), armazem.notificacoes(quem.id, 300)]);
-                const porLer = new Set(avisos.filter((n) => !n.lida && n.ticket_numero).map((n) => n.ticket_numero));
+                const paraEle = filtroDosAvisos(tickets, quem.id, gestor);
+                const porLer = new Set(avisos.filter((n) => !n.lida && n.ticket_numero && paraEle(n)).map((n) => n.ticket_numero));
                 return json({ tickets: tickets.map((t) => ({ ...t, nao_lido: porLer.has(t.numero) })) });
             }
             if (metodo === "GET" && partes[0] === "tickets" && partes.length === 2) {
@@ -256,9 +257,12 @@ export function criarRotasMube(config) {
                 if (metodo === "POST" && partes.length === 3 && partes[2] === "revelar")
                     return json(await plataforma("POST", `/${caminho}`, await corpo()));
             }
-            // Notificações: só na cópia. Os pedidos de credenciais só a quem as vê.
+            // Notificações: só na cópia. Os pedidos de credenciais só a quem as vê;
+            // os avisos de um ticket só a quem tem a ver com ele (e ao gestor).
             if (metodo === "GET" && caminho === "notificacoes") {
-                const avisos = (await armazem.notificacoes(quem.id)).filter((n) => credenciais || n.tipo !== "credencial");
+                const [tickets, todos] = await Promise.all([armazem.tickets(), armazem.notificacoes(quem.id, 400)]);
+                const paraEle = filtroDosAvisos(tickets, quem.id, gestor);
+                const avisos = todos.filter((n) => (credenciais || n.tipo !== "credencial") && paraEle(n)).slice(0, 100);
                 return json({ notificacoes: avisos.map((n) => paraQuem(n, quem.id)) });
             }
             if (metodo === "POST" && caminho === "notificacoes/lidas") {
@@ -338,7 +342,36 @@ function semUrls(t) {
         comentarios: t.comentarios?.map((c) => ({ ...c, anexos: c.anexos.map(limpar) })),
     };
 }
-/** S19: o que o evento vira na central de notificações do componente. Nunca há aviso interno. */
+/**
+ * Quem vê cada aviso. Um aviso sem ticket (ex.: um pedido de credencial) é
+ * para todos; o de um ticket, para quem o relatou, quem lá comentou do lado
+ * do cliente e quem a equipa mencionou. O gestor dos acessos vê todos.
+ * Os avisos de estados intermédios, guardados por versões anteriores, já não
+ * contam (ver `notificacaoDoEvento`).
+ */
+function filtroDosAvisos(tickets, utilizadorId, gestor) {
+    const interessados = new Map();
+    for (const t of tickets) {
+        const ids = new Set();
+        if (t.relatado_por?.id)
+            ids.add(t.relatado_por.id);
+        for (const r of t.relatos ?? [])
+            if (r.utilizador?.id)
+                ids.add(r.utilizador.id);
+        for (const c of t.comentarios ?? [])
+            if (c.autor.tipo === "cliente")
+                ids.add(c.autor.id);
+        interessados.set(t.numero, ids);
+    }
+    return (n) => {
+        if (n.tipo === "estado" && n.titulo === "Estado atualizado")
+            return false;
+        if (gestor || !n.ticket_numero || n.mencionados?.includes(utilizadorId))
+            return true;
+        // Um ticket que ainda não está na cópia: sem saber de quem é, mostra-se.
+        return interessados.get(n.ticket_numero)?.has(utilizadorId) ?? true;
+    };
+}
 /** O aviso como cada pessoa o vê: a resposta em que foi mencionada passa a menção. */
 function paraQuem(n, utilizadorId) {
     if (n.tipo !== "comentario" || !n.mencionados?.includes(utilizadorId))
@@ -347,6 +380,11 @@ function paraQuem(n, utilizadorId) {
     const codigo = n.ticket_numero ? (n.corpo?.match(/^([A-Z][A-Z0-9]{1,5}-\d+):/)?.[1] ?? `#${n.ticket_numero}`) : null;
     return { ...n, tipo: "mencao", titulo: codigo ? `Menção da equipa em ${codigo}` : "Menção da equipa" };
 }
+/**
+ * S19: o que o evento vira na central de notificações do componente. Nunca há
+ * aviso interno, nem dos estados intermédios (Triagem, Contenção, Correção,
+ * Em Validação): o cliente só é avisado do que lhe pede algo ou fecha o ticket.
+ */
 function notificacaoDoEvento(evento) {
     // Um aviso sem ticket (ex.: a equipa pediu uma credencial, S63).
     if (evento.tipo === "notificacao") {
@@ -370,7 +408,7 @@ function notificacaoDoEvento(evento) {
             const descarte = evento.dados.descarte;
             return { ...base, tipo: "estado", titulo: "Ticket encerrado", corpo: `${ticket.codigo} foi encerrado${descarte?.rotulo ? `: ${descarte.rotulo}` : ""}.` };
         }
-        return { ...base, tipo: "estado", titulo: "Estado atualizado", corpo: `${ticket.codigo} passou para ${ESTADOS[estado] ?? estado}.` };
+        return null;
     }
     if (evento.tipo === "comentario_externo") {
         const c = evento.dados.comentario;
