@@ -7,6 +7,7 @@ import { criarApi } from "./api.js";
 import { Credenciais } from "./credenciais.js";
 import { Drive } from "./drive.js";
 import { Notificacoes } from "./notificacoes.js";
+import { NovoRelato } from "./relato.js";
 import { Tickets } from "./tickets.js";
 import { BannerDoTour, Tour } from "./tour.js";
 import { BotaoIcone, Camada, Icone, Vazio } from "./ui.js";
@@ -340,6 +341,104 @@ function useCaminho() {
             window.removeEventListener("popstate", avisar);
         };
     }, () => window.location.pathname, () => "");
+}
+// ─── Reportar um problema a partir de qualquer página ────────────────────────
+const EVENTO_RELATAR = "mube:relatar";
+/** ⌥⇧R no Mac, Alt+Shift+R no Windows: não colide com os atalhos dos navegadores. */
+const ATALHO_DO_RELATO = "alt+shift+r";
+/**
+ * Abre o "Reportar um problema" do `RelatarMube` montado na página. Para um
+ * botão ou um item de menu do software:
+ *
+ *   <button onClick={abrirRelatoMube}>Reportar um problema</button>
+ */
+export function abrirRelatoMube() {
+    if (typeof window !== "undefined")
+        window.dispatchEvent(new CustomEvent(EVENTO_RELATAR));
+}
+function lerAtalho(texto) {
+    const partes = texto.toLowerCase().split("+").map((p) => p.trim()).filter(Boolean);
+    const tecla = partes.pop();
+    if (!tecla)
+        return null;
+    return {
+        tecla,
+        alt: partes.some((p) => p === "alt" || p === "option" || p === "opt"),
+        shift: partes.includes("shift"),
+        mod: partes.some((p) => p === "mod" || p === "cmd" || p === "ctrl" || p === "meta"),
+    };
+}
+function bate(c, e) {
+    if (e.altKey !== c.alt || e.shiftKey !== c.shift || (e.metaKey || e.ctrlKey) !== c.mod)
+        return false;
+    // No Mac, o ⌥ muda a letra (⌥⇧R dá "‰"): as letras e os números comparam-se pela tecla física.
+    if (/^[a-z]$/.test(c.tecla))
+        return e.code === `Key${c.tecla.toUpperCase()}`;
+    if (/^[0-9]$/.test(c.tecla))
+        return e.code === `Digit${c.tecla}`;
+    return e.key.toLowerCase() === c.tecla;
+}
+/**
+ * O "Reportar um problema" em qualquer página do software, sem ir ao suporte:
+ * monta-se uma vez no layout com sessão e abre por cima da página com o atalho
+ * (por omissão ⌥⇧R / Alt+Shift+R) ou com `abrirRelatoMube()`. Ao enviar, a
+ * pessoa fica onde estava: a confirmação mostra o código, e "Ver o ticket"
+ * leva à página do suporte. Só abre a quem tem acesso ao suporte.
+ */
+export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = ATALHO_DO_RELATO, tema = "auto", navegar, }) {
+    const motor = useMotor(base, { ativo: false });
+    const escuro = useEscuro(tema);
+    const noNavegador = useNoNavegador();
+    const [aberto, setAberto] = useState(false);
+    const sessao = motor.sessao;
+    const pode = Boolean(sessao?.utilizador && sessao.liberado);
+    useEffect(() => {
+        if (!pode)
+            return;
+        const combinacao = atalho ? lerAtalho(atalho) : null;
+        const abrir = () => setAberto(true);
+        const tecla = (e) => {
+            if (!combinacao || e.repeat || !bate(combinacao, e))
+                return;
+            e.preventDefault();
+            setAberto(true);
+        };
+        window.addEventListener(EVENTO_RELATAR, abrir);
+        document.addEventListener("keydown", tecla);
+        return () => {
+            window.removeEventListener(EVENTO_RELATAR, abrir);
+            document.removeEventListener("keydown", tecla);
+        };
+    }, [pode, atalho]);
+    const { api, avisos, versao, recarregarAvisos, recarregarSessao } = motor;
+    const contexto = useMemo(() => {
+        if (!sessao)
+            return null;
+        const ir = (parametro) => {
+            const url = `${href}${href.includes("?") ? "&" : "?"}${parametro}`;
+            if (navegar)
+                navegar(url);
+            else
+                window.location.assign(url);
+        };
+        return {
+            api,
+            sessao,
+            avisos,
+            recarregarAvisos,
+            recarregarSessao,
+            versao,
+            ticketAberto: null,
+            abrirTicket: (n) => ir(`ticket=${n}`),
+            abrirSeparador: (s) => ir(`secao=${s}`),
+            fecharTicket: () => { },
+        };
+    }, [api, sessao, avisos, versao, recarregarAvisos, recarregarSessao, href, navegar]);
+    if (!noNavegador || !aberto || !pode || !contexto)
+        return null;
+    return (
+    // Só dá a classe (e o tema) à janela, que abre por portal no fim da página.
+    _jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "contents" }, children: _jsx(Ctx.Provider, { value: contexto, children: _jsx(NovoRelato, { aoFechar: () => setAberto(false), aoCriar: () => recarregarAvisos() }) }) }));
 }
 // ─── A janela flutuante (a forma antiga) ─────────────────────────────────────
 /**

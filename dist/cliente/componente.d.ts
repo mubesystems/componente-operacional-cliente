@@ -88,6 +88,30 @@ export declare function AvisoMube({ base, href, rotulo, tema, posicao, }: {
     posicao?: "direita" | "esquerda";
 }): import("react").ReactPortal | null;
 /**
+ * Abre o "Reportar um problema" do `RelatarMube` montado na página. Para um
+ * botão ou um item de menu do software:
+ *
+ *   <button onClick={abrirRelatoMube}>Reportar um problema</button>
+ */
+export declare function abrirRelatoMube(): void;
+/**
+ * O "Reportar um problema" em qualquer página do software, sem ir ao suporte:
+ * monta-se uma vez no layout com sessão e abre por cima da página com o atalho
+ * (por omissão ⌥⇧R / Alt+Shift+R) ou com `abrirRelatoMube()`. Ao enviar, a
+ * pessoa fica onde estava: a confirmação mostra o código, e "Ver o ticket"
+ * leva à página do suporte. Só abre a quem tem acesso ao suporte.
+ */
+export declare function RelatarMube({ base, href, atalho, tema, navegar, }: {
+    base?: string;
+    /** O endereço da página do suporte (onde está o `PaginaMube`), para "Ver o ticket". */
+    href?: string;
+    /** Ex.: "alt+shift+r", "mod+shift+k" (mod = ⌘ no Mac, Ctrl no Windows). `false` desliga o atalho. */
+    atalho?: string | false;
+    tema?: Tema;
+    /** Como abrir a página do suporte (ex.: `router.push` do Next). Por omissão, `location.assign`. */
+    navegar?: (url: string) => void;
+}): import("react/jsx-runtime").JSX.Element | null;
+/**
  * O suporte numa janela por cima do software, aberta pelo botão "Suporte" no
  * canto. Continua a funcionar, mas a forma recomendada é a página
  * (`PaginaMube`) com o atalho no menu e o `AvisoMube`.
