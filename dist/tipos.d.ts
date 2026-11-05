@@ -189,6 +189,8 @@ export interface Sessao {
     gestor: boolean;
     /** O tour guiado (S65): feito, dispensado ou ainda não (o banner aparece). Fica no banco do próprio software. */
     tour?: EstadoDoTour | null;
+    /** As conversas com a Mube estão ligadas neste software (`conversas: true` em `criarRotasMube`). */
+    conversas?: boolean;
 }
 export type EstadoDoTour = "concluido" | "dispensado";
 export interface Acessos {
@@ -232,4 +234,68 @@ export interface ErroDaApi {
         codigo: string;
         mensagem: string;
     };
+}
+export type TipoDeConversa = "geral" | "taskforce" | "individual";
+/** Uma pessoa numa conversa: do software do cliente (`id` = o id dele) ou da Mube. */
+export interface PessoaNaConversa {
+    id: string;
+    nome: string;
+    foto_url: string | null;
+}
+/** Uma conversa como a plataforma a envia (os ids das pessoas do cliente são os do seu software). */
+export interface ConversaMube {
+    id: string;
+    tipo: TipoDeConversa;
+    /** Só na TaskForce. O geral e a individual não têm título: cada software dá-lhes o seu. */
+    titulo: string | null;
+    arquivada: boolean;
+    criada_em: string;
+    ultima_mensagem_em: string | null;
+    /** As pessoas do cliente que participam (D7: cada pessoa só vê as conversas em que está aqui). */
+    participantes: PessoaNaConversa[];
+    /** Os membros da Mube da conversa (no geral, os do projeto). */
+    membros_mube: PessoaNaConversa[];
+    /** Só na individual: o membro da Mube com quem se fala. */
+    pessoa_mube: PessoaNaConversa | null;
+    /** Para quem pede: mensagens por ler. */
+    por_ler?: number;
+    ultima?: {
+        autor: string;
+        excerto: string;
+        apagada: boolean;
+    } | null;
+}
+export interface MensagemMube {
+    id: string;
+    conversa_id: string;
+    autor: {
+        tipo: "mube" | "cliente";
+        id: string;
+        nome: string;
+        foto_url: string | null;
+    };
+    /** Markdown; null quando apagada. */
+    corpo: string | null;
+    apagada: boolean;
+    editada: boolean;
+    resposta_a: string | null;
+    criada_em: string;
+    anexos: Ficheiro[];
+    reacoes: {
+        emoji: string;
+        total: number;
+    }[];
+}
+/** Um membro da Mube do projeto, para o fim da lista da equipa no chat do software. */
+export type MembroDaMube = PessoaNaConversa;
+/** O evento de webhook `mensagem` (D6). */
+export interface EventoDeMensagem {
+    acao: "nova" | "editada" | "apagada";
+    conversa: ConversaMube;
+    mensagem: MensagemMube;
+}
+/** O evento de webhook `conversa` (D6). */
+export interface EventoDeConversa {
+    acao: "criada" | "participantes" | "titulo" | "arquivada";
+    conversa: ConversaMube;
 }

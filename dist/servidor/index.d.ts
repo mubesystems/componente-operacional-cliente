@@ -7,6 +7,7 @@
  *   export const { GET, POST, PUT, PATCH, DELETE } = criarRotasMube({
  *     utilizador: async () => { … quem tem sessão no software do cliente … },
  *     armazem: armazemSupabase(supabaseComServiceRole),
+ *     // conversas: true,   // as conversas com a Mube (v0.6.0), desligadas por omissão
  *   })
  *
  * O navegador só fala com estas rotas; a chave do projeto fica aqui (requisito
@@ -15,8 +16,8 @@
  */
 import type { Armazem } from "./armazem.js";
 import type { PessoaDaEquipa, Utilizador } from "../tipos.js";
-export { armazemEmMemoria, armazemSupabase, type Armazem } from "./armazem.js";
-export type { PessoaDaEquipa, Utilizador } from "../tipos.js";
+export { armazemEmMemoria, armazemSupabase, type Armazem, type ArmazemDeConversas } from "./armazem.js";
+export type { ConversaMube, MembroDaMube, MensagemMube, PessoaDaEquipa, Utilizador } from "../tipos.js";
 export interface ConfiguracaoMube {
     /** Endereço do Operacional. Por omissão, `MUBE_URL`. */
     url?: string;
@@ -36,6 +37,21 @@ export interface ConfiguracaoMube {
     equipa?: () => Promise<PessoaDaEquipa[]>;
     /** Onde fica a cópia do estado. */
     armazem: Armazem;
+    /**
+     * As conversas com a Mube (v0.6.0): o grupo geral, as TaskForces e as
+     * individuais, para mostrar no chat do software. **Desligadas por omissão**
+     * (D9): sem a opção, o pacote faz o mesmo que a v0.5. Ligadas, declara-as à
+     * plataforma ao arrancar (`PUT /api/v1/capacidades`), envia a `equipa` ao
+     * arrancar e de hora a hora, e abre as rotas `conversas/*` e `equipa-mube`.
+     * `false` (explícito) diz à plataforma que as desligou.
+     */
+    conversas?: boolean;
+    /**
+     * D8: chamado depois de cada mudança guardada numa conversa, com os ids (do
+     * software) de quem a vê. Para o software mandar o seu sinal de tempo real
+     * ao navegador dessas pessoas; os hooks voltam a ler pela rota do servidor.
+     */
+    aoMudarConversas?: (conversaId: string, utilizadoresIds: string[]) => void | Promise<void>;
 }
 export declare function criarRotasMube(config: ConfiguracaoMube): {
     GET: (request: Request, contexto: {
@@ -71,6 +87,16 @@ export declare function criarRotasMube(config: ConfiguracaoMube): {
  */
 export declare function sincronizarLiberados(utilizadores: Omit<Utilizador, "liberado" | "gestor">[], config?: Pick<ConfiguracaoMube, "url" | "chave" | "clienteId" | "projetoId">): Promise<{
     liberados: number;
+    entraram: number;
+    sairam: number;
+}>;
+/**
+ * A equipa do software do cliente, para as conversas (D3): quem não vier sai
+ * da equipa e deixa de ver as conversas. Com `conversas: true` o servidor já a
+ * envia ao arrancar e de hora a hora; chamar isto quando a equipa muda.
+ */
+export declare function sincronizarEquipaMube(pessoas: PessoaDaEquipa[], config?: Pick<ConfiguracaoMube, "url" | "chave" | "clienteId" | "projetoId">): Promise<{
+    equipa: number;
     entraram: number;
     sairam: number;
 }>;

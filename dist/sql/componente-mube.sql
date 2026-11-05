@@ -78,3 +78,61 @@ alter table public.mube_tour               enable row level security;
 revoke all on public.mube_tickets, public.mube_eventos, public.mube_notificacoes,
               public.mube_notificacoes_lidas, public.mube_estado, public.mube_liberados, public.mube_tour
   from anon, authenticated;
+
+
+-- ─── Conversas com a Mube (v0.6.0) ──────────────────────────────────────────
+-- Só se usam com `conversas: true` em `criarRotasMube`; sem a opção, ficam
+-- vazias. A cópia guarda TODAS as conversas do projeto, também as individuais
+-- de outras pessoas com a Mube: quem lê a base de dados diretamente vê-as (o
+-- mesmo que hoje com os tickets). O componente só mostra a cada pessoa as
+-- conversas em que ela participa.
+
+create table if not exists public.mube_conversas (
+  id                 uuid primary key,
+  tipo               text not null check (tipo in ('geral', 'taskforce', 'individual')),
+  arquivada          boolean not null default false,
+  -- A conversa como a plataforma a envia (título, membros da Mube, a última mensagem).
+  dados              jsonb not null,
+  ultima_mensagem_em timestamptz,
+  atualizado_em      timestamptz not null default now()
+);
+
+-- Quem do software do cliente participa em cada conversa (ids do software):
+-- é daqui que sai o que cada pessoa vê.
+create table if not exists public.mube_conversa_participantes (
+  conversa_id   uuid not null references public.mube_conversas (id) on delete cascade,
+  utilizador_id text not null,
+  primary key (conversa_id, utilizador_id)
+);
+create index if not exists mube_conversa_participantes_utilizador_idx on public.mube_conversa_participantes (utilizador_id);
+
+-- As mensagens, uma linha por mensagem (o mesmo evento duas vezes não duplica).
+create table if not exists public.mube_mensagens (
+  id            uuid primary key,
+  conversa_id   uuid not null references public.mube_conversas (id) on delete cascade,
+  autor_tipo    text not null check (autor_tipo in ('mube', 'cliente')),
+  autor_id      text not null,
+  apagada       boolean not null default false,
+  editada       boolean not null default false,
+  -- A mensagem como a plataforma a envia, sem os URLs dos anexos (caducam numa hora).
+  dados         jsonb not null,
+  criada_em     timestamptz not null,
+  atualizado_em timestamptz not null default now()
+);
+create index if not exists mube_mensagens_conversa_idx on public.mube_mensagens (conversa_id, criada_em desc);
+
+-- Até onde cada pessoa leu cada conversa (para os por ler com a plataforma em baixo).
+create table if not exists public.mube_conversa_leituras (
+  conversa_id   uuid not null references public.mube_conversas (id) on delete cascade,
+  utilizador_id text not null,
+  lida_ate      timestamptz not null,
+  primary key (conversa_id, utilizador_id)
+);
+
+alter table public.mube_conversas              enable row level security;
+alter table public.mube_conversa_participantes enable row level security;
+alter table public.mube_mensagens              enable row level security;
+alter table public.mube_conversa_leituras      enable row level security;
+
+revoke all on public.mube_conversas, public.mube_conversa_participantes, public.mube_mensagens, public.mube_conversa_leituras
+  from anon, authenticated;

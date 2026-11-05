@@ -1,5 +1,5 @@
 import type { CamposDaCredencial, ModeloDeCredencial } from "../credenciais.js";
-import type { Acessos, Credenciais, Drive, EstadoDoTour, Ficheiro, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos.js";
+import type { Acessos, ConversaMube, Credenciais, Drive, EstadoDoTour, Ficheiro, MembroDaMube, MensagemMube, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos.js";
 export declare class ErroDoSuporte extends Error {
     readonly codigo: string;
     readonly estado: number;
@@ -73,6 +73,34 @@ export declare function criarApi(base: string): {
         conteudo: CamposDaCredencial;
     }>;
     retirarCredencial: (id: string) => Promise<unknown>;
-    enviar: (ficheiro: Blob, nome: string, aoProgresso?: (fracao: number) => void, sinal?: AbortSignal) => Promise<Ficheiro>;
+    enviar: (ficheiro: Blob, nome: string, aoProgresso?: (fracao: number) => void, sinal?: AbortSignal, caminho?: string) => Promise<Ficheiro>;
+    conversas: () => Promise<{
+        conversas: ConversaMube[];
+        defasado: boolean;
+    }>;
+    equipaMube: () => Promise<{
+        membros: MembroDaMube[];
+        conversaIndividual: boolean;
+    }>;
+    mensagens: (conversaId: string, antes?: string | null) => Promise<{
+        conversa: ConversaMube;
+        mensagens: MensagemMube[];
+        seguinte: string | null;
+        defasado: boolean;
+    }>;
+    escrever: (conversaId: string, corpo: string, opcoes?: {
+        respostaA?: string | null;
+        ficheiros?: string[];
+    }) => Promise<{
+        mensagem: MensagemMube;
+    }>;
+    editarMensagem: (conversaId: string, mensagemId: string, corpo: string) => Promise<unknown>;
+    apagarMensagem: (conversaId: string, mensagemId: string) => Promise<unknown>;
+    marcarConversaLida: (conversaId: string, ate?: string) => Promise<unknown>;
+    abrirIndividual: (pessoaId: string) => Promise<{
+        conversa: ConversaMube;
+        criada: boolean;
+    }>;
+    enviarParaConversa: (ficheiro: Blob, nome: string, aoProgresso?: (fracao: number) => void, sinal?: AbortSignal) => Promise<Ficheiro>;
 };
 export type Api = ReturnType<typeof criarApi>;

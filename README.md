@@ -22,7 +22,7 @@ O navegador nunca vê a chave do projeto: fala só com o servidor do próprio so
 Está no repositório público [`mubesystems/componente-operacional-cliente`](https://github.com/mubesystems/componente-operacional-cliente), já construído, com uma tag por versão. Instala-se direto do GitHub, **sem tokens** nem `.npmrc`:
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.5.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.6.0
 ```
 
 Usa a última versão das [tags do repositório](https://github.com/mubesystems/componente-operacional-cliente/tags) (a `v0.1.0` não funciona fora de um bundler). Para atualizar, troca a tag pela versão nova. Quando a versão nova traz colunas novas, corre outra vez o SQL do passo 3.
@@ -41,7 +41,9 @@ MUBE_CHAVE=mk_live_…   # Operacional → projeto → Configurações → Chave
 Correr no SQL Editor do Supabase do cliente o ficheiro
 `node_modules/@mubesystems/componente-operacional/dist/sql/componente-mube.sql`.
 Cria `mube_tickets`, `mube_eventos`, `mube_notificacoes`,
-`mube_notificacoes_lidas`, `mube_liberados` e `mube_estado`, com RLS ligada e
+`mube_notificacoes_lidas`, `mube_liberados`, `mube_estado`, `mube_tour` e (para as
+conversas, desde a 0.6) `mube_conversas`, `mube_conversa_participantes`,
+`mube_mensagens` e `mube_conversa_leituras`, com RLS ligada e
 sem políticas (só a service role lê e escreve).
 
 ### 4. A rota do servidor
@@ -130,6 +132,18 @@ ou dispensou fica em `mube_tour` (reaplicar o SQL ao atualizar).
 
 A letra é a Plus Jakarta Sans se o software a tiver carregada; senão, a do
 sistema. Para outra: `--mube-fonte` no CSS do software.
+
+### 7. As conversas com a Mube (opcional, desde a 0.6)
+
+O grupo geral (os decisores), as TaskForces e as conversas individuais com a
+equipa da Mube, **dentro do chat do próprio software**. Desligadas por omissão:
+`conversas: true` (com a `equipa`) em `criarRotasMube`, e reaplicar o SQL. O
+pacote dá só hooks sem ecrã — `useConversasMube()`, `useMensagensMube(id)`,
+`useNaoLidosMube()` e `recarregarConversasMube()` para o sinal de tempo real
+(`aoMudarConversas` no servidor). Os membros da Mube vão no fim da lista da
+equipa; o geral e as TaskForces nos grupos. Estar numa conversa não dá acesso
+ao suporte. Atenção: a cópia guarda também as individuais de outras pessoas
+(quem lê a base diretamente vê-as). Ver o §3.8 do [`GUIA.md`](GUIA.md).
 
 ## Como funciona
 

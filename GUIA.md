@@ -48,7 +48,7 @@ A chave mostra-se **uma vez** ao ser criada. Guarda-a já nas variáveis do proj
 ### 3.1 O pacote
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.5.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.6.0
 ```
 
 Usa sempre a **última tag** do repositório ([lista de versões](https://github.com/mubesystems/componente-operacional-cliente/tags)). Não é preciso `.npmrc` nem token.
@@ -213,6 +213,79 @@ Se o projeto tiver **CSP**, permitir em `img-src`, `media-src` e `frame-src` o d
 
 1. Projeto → Configurações → **URL do webhook**: `https://<domínio do projeto>/api/mube/webhook`.
 2. Abrir o software como **gestor**, menu → **Suporte** → **Acessos**: escolher quem tem acesso ao suporte e, desses, quem vê a Drive e quem envia as credenciais. Guardar.
+
+### 3.8 As conversas com a Mube (opcional, desde a 0.6)
+
+A Mube passa a conversar com as pessoas do cliente **dentro do chat do próprio software**, em vez do WhatsApp. Três tipos de conversa, todos decididos no Operacional (o software só mostra):
+
+- o **grupo geral**, com os decisores do cliente (a Mube marca quem é decisor);
+- as **TaskForces**, grupos que a Mube cria para testar a aplicação num momento concreto;
+- as **individuais**, entre uma pessoa do cliente (que a Mube marcou para isso) e um membro da Mube.
+
+Quem conversa tem de estar na **equipa** do software, não tem de estar liberado no suporte: estar numa conversa **não dá** acesso aos tickets, à Drive nem às credenciais.
+
+**1. Ligar a opção** na rota do servidor (§3.4). Precisa da `equipa`:
+
+```ts
+export const { GET, POST, PUT, PATCH, DELETE } = criarRotasMube({
+  armazem: armazemSupabase(supabase),
+  utilizador: async () => { /* … como antes … */ },
+  equipa: async () => (await listarUtilizadoresAtivos()).map((u) => ({ id: u.id, nome: u.nome, email: u.email, fotoUrl: u.avatar })),
+  conversas: true,
+  // O sinal de tempo real (opcional, ver 3 abaixo).
+  aoMudarConversas: async (conversaId, utilizadoresIds) => { /* … */ },
+})
+```
+
+Sem `conversas: true`, o pacote faz exatamente o mesmo que a 0.5 e o projeto não aparece na central de conversas do Operacional. Com a opção, o servidor declara as conversas à Mube (`PUT /api/v1/capacidades`) e envia a equipa no primeiro pedido e depois de hora a hora (se a plataforma estiver em baixo, tenta outra vez passado um minuto, sem atrasar ninguém). Quando a equipa muda (alguém entra ou sai), chamar também `sincronizarEquipaMube(pessoas)` do `…/servidor`. Para desligar mais tarde, `conversas: false`: a Mube fica com o histórico só para leitura.
+
+**2. Mostrar as conversas no chat do software.** Não há página nova: o pacote dá só **hooks, sem ecrã**, e cada software desenha-as no seu chat.
+
+```tsx
+"use client"
+import { useConversasMube, useMensagensMube, useNaoLidosMube } from "@mubesystems/componente-operacional"
+
+// Na lista do chat
+const { ativo, grupos, membrosMube, individualCom, abrirIndividual, conversaIndividual } = useConversasMube()
+// - `grupos`: o geral e as TaskForces → na lista de grupos do chat (o geral não tem título: dá-lhe o do software, ex. "Mube");
+// - `membrosMube`: no FIM da lista da equipa (só aparecem a quem a Mube marcou para conversa individual);
+// - tocar num membro: `individualCom(m.id) ?? await abrirIndividual(m.id)` dá a conversa a abrir.
+
+// Na conversa aberta
+const { mensagens, enviar, enviarFicheiro, editar, apagar, marcarLida, haMais, carregarAnteriores, defasado } = useMensagensMube(conversaId)
+// enviar(corpo) — o corpo é Markdown; com ficheiros: const f = await enviarFicheiro(blob, nome); await enviar("", { ficheiros: [f.id] })
+// marcarLida() ao abrir e quando chegam mensagens com a conversa à vista.
+
+// No menu
+const { naoLidos } = useNaoLidosMube()
+```
+
+Cada pessoa vê só as conversas em que participa (o servidor confere pela sessão; a plataforma confere de novo ao enviar). Com a plataforma em baixo, as conversas leem-se da cópia (`defasado: true`: mostrar que podem estar atrasadas) e enviar falha com uma mensagem clara. As mensagens das conversas **não** entram nas notificações do suporte (`useNovidadesMube` não muda): os avisos de mensagem nova são do próprio chat do software.
+
+**3. Tempo real (opcional).** Sem nada, os hooks voltam a ler de 15 em 15 segundos e ao voltar ao separador. Para ser imediato, o servidor chama `aoMudarConversas(conversaId, utilizadoresIds)` depois de guardar cada mensagem ou mudança, com os ids (do software) de quem vê a conversa. O software manda o **seu** sinal a essas pessoas, sem dados, e no navegador chama `recarregarConversasMube(conversaId)`. Por exemplo, com o Realtime do Supabase do software (broadcast, sem abrir as tabelas `mube_*` ao navegador):
+
+```ts
+// no servidor (criarRotasMube)
+aoMudarConversas: async (conversaId, ids) => {
+  await Promise.all(ids.map((id) => supabase.channel(`mube:${id}`).send({ type: "broadcast", event: "conversa", payload: { conversaId } })))
+},
+```
+
+```tsx
+// no navegador, uma vez no layout com sessão
+"use client"
+import { recarregarConversasMube } from "@mubesystems/componente-operacional"
+useEffect(() => {
+  const canal = supabase.channel(`mube:${utilizadorId}`).on("broadcast", { event: "conversa" }, ({ payload }) => recarregarConversasMube(payload.conversaId)).subscribe()
+  return () => void supabase.removeChannel(canal)
+}, [utilizadorId])
+```
+
+O sinal só diz "mudou": os hooks voltam a ler pela rota do servidor, que é quem decide o que cada pessoa vê. Se o canal for público, um id adivinhado só dá a saber que alguma conversa mudou.
+
+**4. O SQL:** voltar a correr o `componente-mube.sql` (§3.3). Cria `mube_conversas`, `mube_conversa_participantes`, `mube_mensagens` e `mube_conversa_leituras` sem mexer no resto.
+
+> **Atenção à cópia:** o Supabase do projeto guarda **todas** as conversas do projeto com a Mube, também as individuais de outras pessoas. O componente só mostra a cada pessoa as suas, mas quem tem acesso direto à base de dados (o SQL Editor, a service role) consegue lê-las, como já hoje com os tickets.
 
 ---
 
@@ -384,6 +457,11 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 3. Se a versão trouxer SQL novo (a Mube diz), **voltar a correr** o `componente-mube.sql` (§3.3). Correr sempre também não faz mal.
 4. Deploy.
 
+### Da 0.5 para a 0.6
+
+- **SQL novo** (só usado com as conversas): voltar a correr o `componente-mube.sql`.
+- **Conversas com a Mube** (opcional, desligadas por omissão): §3.8. Sem `conversas: true`, nada muda.
+
 ### Da 0.4 para a 0.5
 
 - **Sem SQL novo.**
@@ -437,3 +515,4 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 - [ ] URL do webhook guardado no Operacional
 - [ ] Acessos escolhidos pelo gestor
 - [ ] Teste: um relato com um ficheiro, um comentário da Mube a chegar ao componente, um aceite
+- [ ] Com as conversas (§3.8): `conversas: true` e `equipa` na rota, SQL reaplicado, o grupo geral e os membros da Mube no chat, uma mensagem da central a chegar e a resposta a voltar

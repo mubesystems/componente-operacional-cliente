@@ -7,6 +7,7 @@
  *   export const { GET, POST, PUT, PATCH, DELETE } = criarRotasMube({
  *     utilizador: async () => { … quem tem sessão no software do cliente … },
  *     armazem: armazemSupabase(supabaseComServiceRole),
+ *     // conversas: true,   // as conversas com a Mube (v0.6.0), desligadas por omissão
  *   })
  *
  * O navegador só fala com estas rotas; a chave do projeto fica aqui (requisito
@@ -14,8 +15,12 @@
  * um id vindo do navegador.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { VERSAO } from "../gerado/versao.js";
 import { textoDoMarkdown } from "../markdown.js";
 export { armazemEmMemoria, armazemSupabase } from "./armazem.js";
+const HORA_MS = 3_600_000;
+const MINUTO_MS = 60_000;
+const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 class Falha extends Error {
     estado;
     codigo;
@@ -80,6 +85,217 @@ export function criarRotasMube(config) {
         } while (antes);
         await armazem.marcarSincronizado();
     }
+    // ─── Conversas com a Mube (v0.6.0, D5 a D9) ────────────────────────────────
+    /** A cópia das conversas; um armazém feito à mão para a v0.4 não a tem. */
+    function copiaDeConversas() {
+        const a = armazem;
+        const precisa = ["guardarConversas", "conversa", "conversasDe", "participantesDe", "guardarMensagens", "mensagens", "marcarConversaLida", "porLer"];
+        if (precisa.some((k) => typeof a[k] !== "function")) {
+            throw new Falha(501, "armazem_sem_conversas", "O armazém não guarda conversas. Use o armazemSupabase (ou o armazemEmMemoria) da v0.6.");
+        }
+        return a;
+    }
+    /** A cópia é uma conveniência: com a plataforma a responder, falhar a guardar não falha o pedido. */
+    async function naCopia(fazer) {
+        try {
+            await fazer();
+        }
+        catch (e) {
+            console.error("[mube] conversas: a cópia falhou (o SQL do pacote foi reaplicado?)", e);
+        }
+    }
+    async function avisarSoftware(conversaId, ids) {
+        if (!config.aoMudarConversas)
+            return;
+        try {
+            await config.aoMudarConversas(conversaId, [...new Set(ids)]);
+        }
+        catch (e) {
+            console.error("[mube] aoMudarConversas", e);
+        }
+    }
+    async function enviarEquipa() {
+        if (!config.equipa)
+            return;
+        const equipa = await config.equipa();
+        await plataforma("PUT", "/equipa", { utilizadores: equipa.map((p) => ({ id: p.id, nome: p.nome ?? null, email: p.email ?? null, fotoUrl: p.fotoUrl ?? null })) });
+    }
+    // D5: declara as capacidades e envia a equipa ao arrancar (no primeiro
+    // pedido, sem o atrasar) e de hora a hora. Se a plataforma estiver em baixo,
+    // tenta outra vez passado um minuto; nunca rebenta um pedido por isto.
+    let ativacao = null;
+    let declaradaEm = 0;
+    let tentadaEm = 0;
+    function ativar() {
+        // Sem a opção (nem `false`), o mesmo que a v0.5: não se declara nada.
+        if (config.conversas === undefined)
+            return null;
+        if (ativacao)
+            return ativacao;
+        const agora = Date.now();
+        if (declaradaEm && agora - declaradaEm < HORA_MS)
+            return null;
+        if (agora - tentadaEm < MINUTO_MS)
+            return null;
+        tentadaEm = agora;
+        ativacao = (async () => {
+            await plataforma("PUT", "/capacidades", { versao: VERSAO, conversas: Boolean(config.conversas) });
+            if (config.conversas)
+                await enviarEquipa();
+            declaradaEm = Date.now();
+        })()
+            .catch((e) => console.error("[mube] conversas: não foi possível declarar à plataforma", e instanceof Error ? e.message : e))
+            .finally(() => {
+            ativacao = null;
+        });
+        return ativacao;
+    }
+    const indisponivel = (e) => e instanceof Falha && (e.codigo === "plataforma_indisponivel" || e.estado >= 500);
+    /** D6: o evento `mensagem` ou `conversa` guardado na cópia, e o aviso ao software. */
+    async function guardarEventoDeConversa(tipo, dados) {
+        const copia = copiaDeConversas();
+        const conversa = dados.conversa;
+        if (!conversa?.id)
+            return;
+        // Quem a via antes também é avisado (ex.: saiu da TaskForce, ou foi arquivada).
+        const antes = await copia.participantesDe(conversa.id).catch(() => []);
+        await copia.guardarConversas([conversa]);
+        if (tipo === "mensagem") {
+            const mensagem = dados.mensagem;
+            if (mensagem?.id)
+                await copia.guardarMensagens([mensagem]);
+        }
+        await avisarSoftware(conversa.id, [...antes, ...conversa.participantes.map((p) => p.id)]);
+    }
+    /** As rotas `conversas/*` e `equipa-mube`, sempre com a pessoa da sessão (D7). */
+    async function rotaDeConversas(request, metodo, partes, quem) {
+        if (!config.conversas)
+            throw new Falha(404, "rota_inexistente", "Rota desconhecida.");
+        const copia = copiaDeConversas();
+        // A primeira vez: espera pela declaração, senão a plataforma ainda diz que estão desligadas.
+        await ativar();
+        const utilizador = { id: quem.id, nome: quem.nome ?? null, email: quem.email ?? null, fotoUrl: quem.fotoUrl ?? null };
+        const doPedido = async () => (await request.json().catch(() => ({})));
+        const quemNoUrl = `utilizador=${encodeURIComponent(quem.id)}`;
+        if (partes[0] === "equipa-mube" && partes.length === 1 && metodo === "GET") {
+            try {
+                const r = await plataforma("GET", `/equipa-mube?${quemNoUrl}`);
+                return json({ membros: r.membros, conversaIndividual: true });
+            }
+            catch (e) {
+                // Quem não pode ter conversa individual não vê os membros da Mube: lista vazia, sem erro.
+                if (e instanceof Falha && e.codigo === "sem_conversa_individual")
+                    return json({ membros: [], conversaIndividual: false });
+                throw e;
+            }
+        }
+        if (partes.length === 1 && metodo === "GET") {
+            try {
+                const r = await plataforma("GET", `/conversas?${quemNoUrl}`);
+                await naCopia(() => copia.guardarConversas(r.conversas));
+                return json({ conversas: r.conversas, defasado: false });
+            }
+            catch (e) {
+                if (!indisponivel(e))
+                    throw e;
+                // A plataforma não respondeu: a cópia, com o aviso de que pode estar atrasada.
+                const lista = await copia.conversasDe(quem.id);
+                const porLer = await copia.porLer(quem.id, lista.map((c) => c.id));
+                const conversas = lista
+                    .map((c) => ({ ...c, por_ler: porLer.get(c.id) ?? 0 }))
+                    .sort((a, b) => (b.ultima_mensagem_em ?? b.criada_em).localeCompare(a.ultima_mensagem_em ?? a.criada_em));
+                return json({ conversas, defasado: true });
+            }
+        }
+        if (partes[1] === "individual" && partes.length === 2 && metodo === "POST") {
+            const { pessoaId } = await doPedido();
+            const r = await plataforma("POST", "/conversas/individual", { utilizador, pessoaId });
+            await naCopia(() => copia.guardarConversas([r.conversa]));
+            return json(r);
+        }
+        // Os ficheiros de uma mensagem: basta estar na equipa (não é preciso o suporte).
+        if (partes[1] === "ficheiros" && partes.length === 2 && metodo === "POST")
+            return json(await enviarFicheiro(request, utilizador, "conversa"), 201);
+        const id = partes[1];
+        if (!id || !ID.test(id))
+            throw new Falha(404, "conversa_inexistente", "Essa conversa não existe.");
+        if (partes[2] === "mensagens" && partes.length === 3 && metodo === "GET") {
+            const antes = new URL(request.url).searchParams.get("antes");
+            try {
+                const r = await plataforma("GET", `/conversas/${id}/mensagens?${quemNoUrl}${antes ? `&antes=${encodeURIComponent(antes)}` : ""}`);
+                await naCopia(async () => {
+                    await copia.guardarConversas([r.conversa]);
+                    await copia.guardarMensagens(r.mensagens);
+                });
+                return json({ ...r, defasado: false });
+            }
+            catch (e) {
+                if (!indisponivel(e))
+                    throw e;
+                const conversa = await copia.conversa(id);
+                // D7: na cópia também só vê quem participa.
+                if (!conversa || conversa.arquivada || !conversa.participantes.some((p) => p.id === quem.id))
+                    throw new Falha(404, "conversa_inexistente", "Essa conversa não existe.");
+                const mensagens = await copia.mensagens(id, { antes, limite: 50 });
+                return json({ conversa, mensagens, seguinte: mensagens.length === 50 ? mensagens[0].criada_em : null, defasado: true });
+            }
+        }
+        if (partes[2] === "mensagens" && partes.length === 3 && metodo === "POST") {
+            const { corpo, respostaA, ficheiros } = await doPedido();
+            let r;
+            try {
+                r = await plataforma("POST", `/conversas/${id}/mensagens`, { utilizador, corpo, respostaA: respostaA ?? undefined, ficheiros });
+            }
+            catch (e) {
+                if (indisponivel(e))
+                    throw new Falha(502, "plataforma_indisponivel", "A mensagem não foi enviada: a Mube não respondeu. Tente de novo daqui a pouco.");
+                throw e;
+            }
+            await naCopia(() => copia.guardarMensagens([r.mensagem]));
+            await avisarSoftware(id, await copia.participantesDe(id).catch(() => [quem.id]));
+            return json(r, 201);
+        }
+        if (partes[2] === "mensagens" && partes.length === 4 && ID.test(partes[3]) && (metodo === "PATCH" || metodo === "DELETE")) {
+            const pedido = metodo === "PATCH" ? await doPedido() : {};
+            try {
+                await plataforma(metodo, `/conversas/${id}/mensagens/${partes[3]}`, { utilizador, ...(metodo === "PATCH" ? { corpo: pedido.corpo } : {}) });
+            }
+            catch (e) {
+                if (indisponivel(e))
+                    throw new Falha(502, "plataforma_indisponivel", "Não foi possível mudar a mensagem: a Mube não respondeu. Tente de novo daqui a pouco.");
+                throw e;
+            }
+            // O evento da plataforma traz a mensagem como ficou; até lá, a cópia já mostra a mudança.
+            await naCopia(async () => {
+                const [atual] = (await copia.mensagens(id, { limite: 500 })).filter((m) => m.id === partes[3]);
+                if (atual) {
+                    await copia.guardarMensagens([
+                        metodo === "DELETE"
+                            ? { ...atual, apagada: true, corpo: null, anexos: [], reacoes: [] }
+                            : { ...atual, editada: true, corpo: typeof pedido.corpo === "string" ? pedido.corpo : atual.corpo },
+                    ]);
+                }
+            });
+            await avisarSoftware(id, await copia.participantesDe(id).catch(() => [quem.id]));
+            return json({ ok: true });
+        }
+        if (partes[2] === "lidas" && partes.length === 3 && metodo === "POST") {
+            const { ate } = await doPedido();
+            const quando = typeof ate === "string" && !Number.isNaN(Date.parse(ate)) ? new Date(Math.min(Date.parse(ate), Date.now())).toISOString() : new Date().toISOString();
+            await naCopia(() => copia.marcarConversaLida(id, quem.id, quando));
+            try {
+                await plataforma("POST", `/conversas/${id}/lidas`, { utilizador, ate: quando });
+            }
+            catch (e) {
+                // Ler fica registado aqui; a plataforma acerta da próxima vez.
+                if (!indisponivel(e))
+                    throw e;
+                return json({ ok: true, defasado: true });
+            }
+            return json({ ok: true });
+        }
+        throw new Falha(404, "rota_inexistente", "Rota desconhecida.");
+    }
     // ─── Webhook (S26, S27): a plataforma avisa, a cópia atualiza-se ───────────
     async function webhook(request) {
         const corpo = await request.text();
@@ -90,6 +306,14 @@ export function criarRotasMube(config) {
             return json({ erro: { codigo: "assinatura_invalida", mensagem: "Assinatura inválida." } }, 401);
         }
         const evento = JSON.parse(corpo);
+        // D6: as conversas guardam-se pela id da conversa e da mensagem, por isso
+        // repetir não duplica; se a cópia falhar, a resposta não é 2xx e a
+        // plataforma volta a tentar. Nunca criam avisos do suporte (`mube_notificacoes`).
+        if (evento.tipo === "mensagem" || evento.tipo === "conversa") {
+            if (config.conversas)
+                await guardarEventoDeConversa(evento.tipo, evento.dados);
+            return json({ ok: true });
+        }
         // Requisito 9: o mesmo evento pode chegar mais de uma vez.
         if (!(await armazem.eventoNovo(evento.id)))
             return json({ ok: true, repetido: true });
@@ -120,6 +344,8 @@ export function criarRotasMube(config) {
         try {
             if (metodo === "POST" && caminho === "webhook")
                 return await webhook(request);
+            // D5: com a opção das conversas, declará-las (no primeiro pedido e de hora a hora), sem esperar.
+            void ativar();
             const quem = await config.utilizador(request);
             const escolha = quem ? (await armazem.liberados()).find((l) => l.id === quem.id) : undefined;
             const liberado = quem ? (quem.liberado ?? Boolean(escolha)) : false;
@@ -131,7 +357,7 @@ export function criarRotasMube(config) {
             if (metodo === "GET" && caminho === "sessao") {
                 // S65: se já fez o tour, só da cópia do próprio software.
                 const tour = quem && (liberado || gestor) ? await armazem.tour(quem.id).catch(() => null) : null;
-                return json({ utilizador: quem ? { id: quem.id, nome: quem.nome ?? null } : null, liberado, drive, credenciais, gestor, tour });
+                return json({ utilizador: quem ? { id: quem.id, nome: quem.nome ?? null } : null, liberado, drive, credenciais, gestor, tour, conversas: Boolean(config.conversas) });
             }
             if (!quem)
                 throw new Falha(401, "sem_sessao", "Entre no software para usar o suporte.");
@@ -183,6 +409,10 @@ export function criarRotasMube(config) {
                     return json({ liberados: escolhidos.length, comDrive: escolhidos.filter((a) => a.drive).length, comCredenciais: escolhidos.filter((a) => a.credenciais).length });
                 }
             }
+            // As conversas com a Mube (v0.6.0): não pedem o suporte, só estar na equipa (D3).
+            const segmentos = caminho.split("/");
+            if (segmentos[0] === "conversas" || segmentos[0] === "equipa-mube")
+                return await rotaDeConversas(request, metodo, segmentos, quem);
             if (!liberado)
                 throw new Falha(403, "nao_liberado", "Não tem acesso ao suporte deste projeto.");
             const utilizador = { id: quem.id, nome: quem.nome ?? null, email: quem.email ?? null, fotoUrl: quem.fotoUrl ?? null };
@@ -279,7 +509,7 @@ export function criarRotasMube(config) {
             return json({ erro: { codigo: "interno", mensagem: "Erro inesperado no suporte." } }, 500);
         }
     }
-    async function enviarFicheiro(request, utilizador) {
+    async function enviarFicheiro(request, utilizador, finalidade) {
         if (!request.body)
             throw new Falha(400, "ficheiro_vazio", "O ficheiro veio vazio.");
         let nome = "ficheiro";
@@ -291,7 +521,7 @@ export function criarRotasMube(config) {
         }
         const tipoMime = (request.headers.get("content-type") ?? "").split(";")[0].trim() || "application/octet-stream";
         const tamanho = Number(request.headers.get("content-length") ?? 0);
-        const pedido = await plataforma("POST", "/ficheiros", { utilizador, nome, tipoMime, tamanhoBytes: tamanho });
+        const pedido = await plataforma("POST", "/ficheiros", { utilizador, nome, tipoMime, tamanhoBytes: tamanho, ...(finalidade ? { finalidade } : {}) });
         const envio = await fetch(pedido.url_de_envio, {
             method: "PUT",
             headers: { "Content-Type": tipoMime, ...(tamanho ? { "Content-Length": String(tamanho) } : {}) },
@@ -323,6 +553,28 @@ export async function sincronizarLiberados(utilizadores, config = {}) {
             "Content-Type": "application/json",
         },
         body: JSON.stringify({ utilizadores }),
+    });
+    const dados = await r.json().catch(() => null);
+    if (!r.ok)
+        throw new Error(dados?.erro?.mensagem ?? `A plataforma respondeu ${r.status}.`);
+    return dados;
+}
+/**
+ * A equipa do software do cliente, para as conversas (D3): quem não vier sai
+ * da equipa e deixa de ver as conversas. Com `conversas: true` o servidor já a
+ * envia ao arrancar e de hora a hora; chamar isto quando a equipa muda.
+ */
+export async function sincronizarEquipaMube(pessoas, config = {}) {
+    const url = (config.url ?? process.env.MUBE_URL ?? "").replace(/\/$/, "");
+    const r = await fetch(`${url}/api/v1/equipa`, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bearer ${config.chave ?? process.env.MUBE_CHAVE ?? ""}`,
+            "X-Mube-Cliente": config.clienteId ?? process.env.MUBE_CLIENTE_ID ?? "",
+            "X-Mube-Projeto": config.projetoId ?? process.env.MUBE_PROJETO_ID ?? "",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ utilizadores: pessoas.map((p) => ({ id: p.id, nome: p.nome ?? null, email: p.email ?? null, fotoUrl: p.fotoUrl ?? null })) }),
     });
     const dados = await r.json().catch(() => null);
     if (!r.ok)

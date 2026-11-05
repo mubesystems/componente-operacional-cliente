@@ -30,10 +30,10 @@ export function criarApi(base) {
         return dados;
     }
     /** Envia o ficheiro pela parte servidor, que o passa ao armazenamento. Com progresso. */
-    function enviar(ficheiro, nome, aoProgresso, sinal) {
+    function enviar(ficheiro, nome, aoProgresso, sinal, caminho = "ficheiros") {
         return new Promise((resolver, rejeitar) => {
             const xhr = new XMLHttpRequest();
-            xhr.open("POST", `${raiz}/ficheiros`);
+            xhr.open("POST", `${raiz}/${caminho}`);
             xhr.setRequestHeader("Content-Type", ficheiro.type || "application/octet-stream");
             xhr.setRequestHeader("X-Nome", encodeURIComponent(nome));
             xhr.upload.onprogress = (e) => e.lengthComputable && aoProgresso?.(e.loaded / e.total);
@@ -82,5 +82,15 @@ export function criarApi(base) {
         revelarCredencial: (id) => pedir("POST", `credenciais/${id}/revelar`, {}),
         retirarCredencial: (id) => pedir("DELETE", `credenciais/${id}`, {}),
         enviar,
+        // Conversas com a Mube (v0.6.0)
+        conversas: () => pedir("GET", "conversas"),
+        equipaMube: () => pedir("GET", "equipa-mube"),
+        mensagens: (conversaId, antes) => pedir("GET", `conversas/${conversaId}/mensagens${antes ? `?antes=${encodeURIComponent(antes)}` : ""}`),
+        escrever: (conversaId, corpo, opcoes = {}) => pedir("POST", `conversas/${conversaId}/mensagens`, { corpo, respostaA: opcoes.respostaA ?? undefined, ficheiros: opcoes.ficheiros ?? [] }),
+        editarMensagem: (conversaId, mensagemId, corpo) => pedir("PATCH", `conversas/${conversaId}/mensagens/${mensagemId}`, { corpo }),
+        apagarMensagem: (conversaId, mensagemId) => pedir("DELETE", `conversas/${conversaId}/mensagens/${mensagemId}`, {}),
+        marcarConversaLida: (conversaId, ate) => pedir("POST", `conversas/${conversaId}/lidas`, ate ? { ate } : {}),
+        abrirIndividual: (pessoaId) => pedir("POST", "conversas/individual", { pessoaId }),
+        enviarParaConversa: (ficheiro, nome, aoProgresso, sinal) => enviar(ficheiro, nome, aoProgresso, sinal, "conversas/ficheiros"),
     };
 }
