@@ -443,6 +443,9 @@
 .mube\:h-10 {
   height: calc(var(--mube-spacing) * 10);
 }
+.mube\:h-11 {
+  height: calc(var(--mube-spacing) * 11);
+}
 .mube\:h-12 {
   height: calc(var(--mube-spacing) * 12);
 }
@@ -454,6 +457,9 @@
 }
 .mube\:h-20 {
   height: calc(var(--mube-spacing) * 20);
+}
+.mube\:h-24 {
+  height: calc(var(--mube-spacing) * 24);
 }
 .mube\:h-28 {
   height: calc(var(--mube-spacing) * 28);
@@ -530,8 +536,14 @@
 .mube\:min-h-\[640px\] {
   min-height: 640px;
 }
+.mube\:w-0\.5 {
+  width: calc(var(--mube-spacing) * 0.5);
+}
 .mube\:w-1\/2 {
   width: calc(1 / 2 * 100%);
+}
+.mube\:w-2\/3 {
+  width: calc(2 / 3 * 100%);
 }
 .mube\:w-3\/4 {
   width: calc(3 / 4 * 100%);
@@ -559,6 +571,9 @@
 }
 .mube\:w-60 {
   width: calc(var(--mube-spacing) * 60);
+}
+.mube\:w-\[3px\] {
+  width: 3px;
 }
 .mube\:w-\[4\.5rem\] {
   width: 4.5rem;
@@ -619,6 +634,9 @@
 }
 .mube\:min-w-44 {
   min-width: calc(var(--mube-spacing) * 44);
+}
+.mube\:min-w-\[220px\] {
+  min-width: 220px;
 }
 .mube\:min-w-\[296px\] {
   min-width: 296px;
@@ -750,6 +768,9 @@
 }
 .mube\:gap-8 {
   gap: calc(var(--mube-spacing) * 8);
+}
+.mube\:gap-\[3px\] {
+  gap: 3px;
 }
 .mube\:self-start {
   align-self: flex-start;
@@ -1009,6 +1030,9 @@
 }
 .mube\:bg-muted {
   background-color: var(--muted);
+}
+.mube\:bg-muted-foreground {
+  background-color: var(--muted-foreground);
 }
 .mube\:bg-muted\/50 {
   background-color: var(--muted);
@@ -1689,6 +1713,11 @@
   transition-timing-function: var(--tw-ease, var(--mube-default-transition-timing-function));
   transition-duration: var(--tw-duration, var(--mube-default-transition-duration));
 }
+.mube\:transition-\[height\] {
+  transition-property: height;
+  transition-timing-function: var(--tw-ease, var(--mube-default-transition-timing-function));
+  transition-duration: var(--tw-duration, var(--mube-default-transition-duration));
+}
 .mube\:transition-\[width\] {
   transition-property: width;
   transition-timing-function: var(--tw-ease, var(--mube-default-transition-timing-function));
@@ -1713,6 +1742,10 @@
   transition-property: transform, translate, scale, rotate;
   transition-timing-function: var(--tw-ease, var(--mube-default-transition-timing-function));
   transition-duration: var(--tw-duration, var(--mube-default-transition-duration));
+}
+.mube\:duration-100 {
+  --tw-duration: 100ms;
+  transition-duration: 100ms;
 }
 .mube\:duration-150 {
   --tw-duration: 150ms;

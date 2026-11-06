@@ -363,7 +363,6 @@ export function criarRotasMube(config) {
         if (!(await armazem.eventoNovo(evento.id)))
             return json({ ok: true, repetido: true });
         const ticket = evento.dados.ticket;
-        const tipoDoEvento = tipoDoTicket(evento.dados.tipo);
         if (ticket) {
             try {
                 await atualizarTicket(ticket.numero);
@@ -377,7 +376,6 @@ export function criarRotasMube(config) {
                             codigo: ticket.codigo,
                             estado: evento.dados.estado,
                             estado_rotulo: ESTADOS[evento.dados.estado],
-                            ...(tipoDoEvento ? { tipo: tipoDoEvento } : {}),
                         },
                     ]);
                 }
@@ -388,12 +386,14 @@ export function criarRotasMube(config) {
             await armazem.guardarNotificacao(aviso);
         if (evento.tipo === "estado" && ticket)
             await chamarAoMudarTicket(ticket, evento.dados);
+        if (evento.tipo === "sugestao")
+            await chamarAoMudarSugestao(evento.dados);
         // 2xx dentro do tempo limite: conta como entregue (S28, S32).
         return json({ ok: true });
     }
     /**
      * v0.7.0: o gancho do software, depois de a cópia se atualizar. Quem
-     * relatou e o tipo vêm do evento (a cópia de reserva, quando a leitura
+     * relatou vem do evento (a cópia de reserva, quando a leitura
      * falha, não os tem); a cópia só completa o nome. Nunca falha o webhook:
      * o evento já está marcado como visto e não volta a ser tratado.
      */
@@ -412,7 +412,6 @@ export function criarRotasMube(config) {
                 ticket: copia ?? { numero: ticket.numero, codigo: ticket.codigo, estado, estado_rotulo: ESTADOS[estado] },
                 estado,
                 estadoAnterior: dados.estado_anterior ?? null,
-                tipo: tipoDoTicket(dados.tipo) ?? copia?.tipo ?? "erro",
                 relatadoPor,
             };
             let espera;
@@ -428,6 +427,32 @@ export function criarRotasMube(config) {
         }
     }
     // ─── O pedido do navegador ────────────────────────────────────────────────
+    /** v0.8.0: como o `aoMudarTicket`: espera até 5 s e nunca falha o webhook. */
+    async function chamarAoMudarSugestao(dados) {
+        if (!config.aoMudarSugestao)
+            return;
+        try {
+            const quem = dados.sugerido_por;
+            const mudanca = {
+                sugestao: dados.sugestao,
+                estado: dados.estado,
+                estadoAnterior: dados.estado_anterior ?? null,
+                resposta: dados.resposta ?? null,
+                sugeridoPor: typeof quem?.id === "string" && quem.id ? { id: quem.id } : null,
+            };
+            let parar = () => { };
+            const tempo = new Promise((resolver) => {
+                const id = setTimeout(() => resolver("tempo"), GANCHO_MS);
+                parar = () => clearTimeout(id);
+            });
+            const fim = await Promise.race([Promise.resolve(config.aoMudarSugestao(mudanca)).then(() => "ok"), tempo]).finally(parar);
+            if (fim === "tempo")
+                console.error(`[mube] aoMudarSugestao: ${mudanca.sugestao?.codigo} demorou mais de ${GANCHO_MS / 1000} s; o webhook respondeu sem esperar.`);
+        }
+        catch (e) {
+            console.error("[mube] aoMudarSugestao", e);
+        }
+    }
     async function tratar(request, contexto) {
         const caminho = ((await contexto.params).caminho ?? []).join("/");
         const metodo = request.method.toUpperCase();
@@ -446,6 +471,8 @@ export function criarRotasMube(config) {
             const gestor = Boolean(quem?.gestor);
             // v0.7.0: com `relatosAbertos`, qualquer pessoa com sessão reporta.
             const podeRelatar = liberado || (Boolean(config.relatosAbertos) && Boolean(quem));
+            // v0.8.0: a permissão de Sugestões, à parte do suporte.
+            const comSugestoes = quem ? (quem.sugestoes ?? (await armazem.acessosSugestoes()).includes(quem.id)) : false;
             if (metodo === "GET" && caminho === "sessao") {
                 // S65: se já fez o tour, só da cópia do próprio software.
                 const tour = quem && (liberado || gestor) ? await armazem.tour(quem.id).catch(() => null) : null;
@@ -458,6 +485,7 @@ export function criarRotasMube(config) {
                     tour,
                     conversas: Boolean(config.conversas),
                     relatar: podeRelatar,
+                    sugestoes: comSugestoes,
                 });
             }
             if (!quem)
@@ -479,8 +507,9 @@ export function criarRotasMube(config) {
                 const equipa = await config.equipa();
                 if (metodo === "GET") {
                     const escolhas = new Map((await armazem.liberados()).map((l) => [l.id, l]));
+                    const veSugestoes = new Set(await armazem.acessosSugestoes());
                     return json({
-                        equipa: equipa.map((p) => ({ ...p, liberado: escolhas.has(p.id), drive: escolhas.get(p.id)?.drive ?? false, credenciais: escolhas.get(p.id)?.credenciais ?? false })),
+                        equipa: equipa.map((p) => ({ ...p, liberado: escolhas.has(p.id), drive: escolhas.get(p.id)?.drive ?? false, credenciais: escolhas.get(p.id)?.credenciais ?? false, sugestoes: veSugestoes.has(p.id) })),
                     });
                 }
                 if (metodo === "PUT") {
@@ -507,6 +536,9 @@ export function criarRotasMube(config) {
                         }),
                     });
                     await armazem.definirLiberados(escolhidos);
+                    // Sem o campo (pacote anterior), a permissão de Sugestões não muda.
+                    if (Array.isArray(pedido.sugestoes))
+                        await armazem.definirAcessosSugestoes(pedido.sugestoes.filter((id) => typeof id === "string" && daEquipa.has(id)));
                     return json({ liberados: escolhidos.length, comDrive: escolhidos.filter((a) => a.drive).length, comCredenciais: escolhidos.filter((a) => a.credenciais).length });
                 }
             }
@@ -525,6 +557,26 @@ export function criarRotasMube(config) {
                 if (caminho === "ficheiros")
                     return json(await enviarFicheiro(request, utilizador, "relato"), 201);
             }
+            // v0.8.0: as sugestões são uma permissão à parte do suporte. Sem cópia: leem-se da plataforma.
+            if (segmentos[0] === "sugestoes") {
+                if (metodo === "GET") {
+                    if (!comSugestoes)
+                        throw new Falha(403, "sem_permissao", "Não tem acesso às sugestões deste projeto.");
+                    return json(await plataforma("GET", `/${caminho}`));
+                }
+                if (metodo === "POST" && segmentos.length === 1) {
+                    if (!comSugestoes && !config.relatosAbertos)
+                        throw new Falha(403, "sem_permissao", "Não tem acesso às sugestões deste projeto.");
+                    return json(await plataforma("POST", "/sugestoes", await corpo()), 201);
+                }
+            }
+            if (metodo === "POST" && caminho === "transcricoes") {
+                if (!comSugestoes && !podeRelatar)
+                    throw new Falha(403, "sem_permissao", "Não pode transcrever áudio neste projeto.");
+                return json(await plataforma("POST", "/transcricoes", await corpo()));
+            }
+            if (!liberado && comSugestoes && metodo === "POST" && caminho === "ficheiros")
+                return json(await enviarFicheiro(request, utilizador, "relato"), 201);
             if (!liberado)
                 throw new Falha(403, "nao_liberado", "Não tem acesso ao suporte deste projeto.");
             const partes = caminho.split("/");
@@ -614,12 +666,11 @@ export function criarRotasMube(config) {
         const r = await plataforma("POST", "/relatos", pedido);
         await armazem.guardarTickets([semUrls(r.ticket)]);
         if (!r.repetido && liberado) {
-            const sugestao = r.ticket.tipo === "sugestao";
             await armazem.guardarNotificacao({
                 id: `recebido-${r.ticket.id}`,
                 tipo: "recebido",
                 ticket_numero: r.ticket.numero,
-                titulo: sugestao ? "A sua sugestão foi recebida" : "O seu relato foi recebido",
+                titulo: "O seu relato foi recebido",
                 corpo: `${r.ticket.codigo} entrou na fila de triagem.`,
                 criado_em: new Date().toISOString(),
             });
@@ -698,10 +749,6 @@ export async function sincronizarEquipaMube(pessoas, config = {}) {
         throw new Error(dados?.erro?.mensagem ?? `A plataforma respondeu ${r.status}.`);
     return dados;
 }
-/** O tipo que veio num evento, se for um dos conhecidos. */
-function tipoDoTicket(valor) {
-    return valor === "erro" || valor === "sugestao" ? valor : null;
-}
 /** As URLs assinadas caducam numa hora: não vale a pena guardá-las na cópia. */
 function semUrls(t) {
     const limpar = (f) => {
@@ -766,6 +813,14 @@ function notificacaoDoEvento(evento) {
             return null;
         const tipo = n.tipo === "credencial" ? "credencial" : "aviso";
         return { id: evento.id, tipo, ticket_numero: null, titulo: n.titulo.slice(0, 200), corpo: n.corpo?.slice(0, 500) ?? null, criado_em: evento.ocorrido_em };
+    }
+    // v0.8.0: a decisão sobre uma sugestão; a resposta da Mube é o corpo.
+    if (evento.tipo === "sugestao") {
+        const s = evento.dados.sugestao;
+        if (!s?.codigo)
+            return null;
+        const resposta = evento.dados.resposta;
+        return { id: evento.id, tipo: "aviso", ticket_numero: null, titulo: `Sugestão ${s.codigo}: ${String(evento.dados.estado_rotulo ?? "atualizada")}`, corpo: (resposta ?? s.titulo ?? "").slice(0, 500) || null, criado_em: evento.ocorrido_em };
     }
     const ticket = evento.dados.ticket;
     if (!ticket)

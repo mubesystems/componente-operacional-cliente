@@ -80,6 +80,18 @@ revoke all on public.mube_tickets, public.mube_eventos, public.mube_notificacoes
   from anon, authenticated;
 
 
+-- ─── Sugestões (v0.8.0) ─────────────────────────────────────────────────────
+-- Quem tem a permissão de Sugestões, escolhida em Acessos. Tabela à parte porque
+-- uma linha em `mube_liberados` quer dizer "tem o suporte", e esta permissão é
+-- independente dele. As sugestões em si não têm cópia: leem-se da plataforma.
+create table if not exists public.mube_acessos_sugestoes (
+  utilizador_id text primary key,
+  dado_em       timestamptz not null default now()
+);
+alter table public.mube_acessos_sugestoes enable row level security;
+revoke all on public.mube_acessos_sugestoes from anon, authenticated;
+
+
 -- ─── Conversas com a Mube (v0.6.0) ──────────────────────────────────────────
 -- Só se usam com `conversas: true` em `criarRotasMube`; sem a opção, ficam
 -- vazias. A cópia guarda TODAS as conversas do projeto, também as individuais

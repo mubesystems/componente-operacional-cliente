@@ -1,5 +1,5 @@
 import type { CamposDaCredencial, ModeloDeCredencial } from "../credenciais.js";
-import type { Acessos, ConversaMube, Credenciais, Drive, EstadoDoTour, Ficheiro, MembroDaMube, MensagemMube, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia, TipoDeTicket } from "../tipos.js";
+import type { Acessos, ConversaMube, Credenciais, Drive, EstadoDoTour, Ficheiro, MembroDaMube, MensagemMube, NotificacaoLida, Sessao, SugestaoDetalhe, SugestaoResumo, TicketDetalhe, TicketNaCopia } from "../tipos.js";
 export declare class ErroDoSuporte extends Error {
     readonly codigo: string;
     readonly estado: number;
@@ -18,16 +18,32 @@ export declare function criarApi(base: string): {
         ticket: TicketDetalhe;
         defasado: boolean;
     }>;
-    /** `tipo` (v0.7.0): `erro` (por omissão) ou `sugestao`; o impacto só é obrigatório nos erros. */
     relatar: (corpo: {
-        tipo?: TipoDeTicket;
         texto?: string;
-        impacto?: string;
+        impacto: string;
         ficheiros: string[];
         chaveIdempotencia: string;
     }) => Promise<{
         ticket: TicketDetalhe;
         repetido: boolean;
+    }>;
+    sugestoes: () => Promise<{
+        sugestoes: SugestaoResumo[];
+    }>;
+    sugestao: (numero: number) => Promise<{
+        sugestao: SugestaoDetalhe;
+    }>;
+    sugerir: (corpo: {
+        texto?: string;
+        ficheiros: string[];
+        chaveIdempotencia: string;
+    }) => Promise<{
+        sugestao: SugestaoDetalhe;
+        repetida: boolean;
+    }>;
+    /** O texto de um áudio já enviado (v0.8.0). */
+    transcrever: (ficheiro: string) => Promise<{
+        texto: string | null;
     }>;
     comentar: (numero: number, corpo: string, respostaA?: string | null, ficheiros?: string[]) => Promise<unknown>;
     aceitar: (numero: number) => Promise<unknown>;
@@ -52,7 +68,7 @@ export declare function criarApi(base: string): {
         id: string;
         drive: boolean;
         credenciais: boolean;
-    }[]) => Promise<{
+    }[], sugestoes: string[]) => Promise<{
         liberados: number;
         comDrive: number;
         comCredenciais?: number;

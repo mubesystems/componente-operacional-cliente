@@ -43,6 +43,9 @@ export interface Armazem extends Partial<ArmazemDeConversas> {
     /** Quem o gestor do software liberou para o suporte (S14, S18), com os ids do software do cliente, e se vê a Drive e as credenciais. */
     liberados(): Promise<Liberado[]>;
     definirLiberados(lista: Liberado[]): Promise<void>;
+    /** Quem tem a permissão de Sugestões (v0.8.0), à parte do suporte. */
+    acessosSugestoes(): Promise<string[]>;
+    definirAcessosSugestoes(ids: string[]): Promise<void>;
     /** Se a pessoa já fez (ou dispensou) o tour guiado (S65): nunca vai à plataforma. */
     tour(utilizadorId: string): Promise<EstadoDoTour | null>;
     marcarTour(utilizadorId: string, estado: EstadoDoTour): Promise<void>;

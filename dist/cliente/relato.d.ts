@@ -34,14 +34,23 @@ export declare function ZonaDeSoltar({ aoEscolher, texto, ajuda }: {
     texto?: string;
     ajuda?: string;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function GravadorDeAudio({ aoGravar, gravado, aoRetirar }: {
+/**
+ * Gravar áudio (v0.8.0): enquanto grava, o tempo e a onda do volume real; no
+ * fim, o áudio com a onda, para ouvir, regravar ou retirar. `aoEstado` diz a
+ * quem usa que está a gravar (o formulário esconde o texto e trava o envio).
+ */
+export declare function GravadorDeAudio({ aoGravar, gravado, aoRetirar, aoEstado, }: {
     aoGravar: (blob: Blob, segundos: number) => void;
     gravado?: {
         segundos: number;
     } | null;
     aoRetirar?: () => void;
+    aoEstado?: (aGravar: boolean) => void;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function NovoRelato({ aoFechar, aoCriar }: {
+export declare function NovoRelato({ aoFechar, aoCriar, soSugestao, aoSugerir, }: {
     aoFechar: () => void;
-    aoCriar: (t: TicketDetalhe) => void;
+    aoCriar?: (t: TicketDetalhe) => void;
+    /** v0.8.0: aberto na secção Sugestões, sem a escolha entre erro e sugestão. */
+    soSugestao?: boolean;
+    aoSugerir?: () => void;
 }): import("react/jsx-runtime").JSX.Element;

@@ -1,6 +1,6 @@
 import { type Api } from "./api.js";
 import type { NotificacaoLida, Sessao } from "../tipos.js";
-export type Separador = "tickets" | "drive" | "credenciais" | "notificacoes" | "acessos";
+export type Separador = "tickets" | "sugestoes" | "drive" | "credenciais" | "notificacoes" | "acessos";
 interface Contexto {
     api: Api;
     sessao: Sessao;
@@ -11,6 +11,10 @@ interface Contexto {
     /** Muda quando há novidades: as listas abertas recarregam. */
     versao: number;
     abrirTicket: (numero: number) => void;
+    /** v0.8.0: abre uma sugestão na secção dela. */
+    abrirSugestao: (numero: number) => void;
+    sugestaoAberta: number | null;
+    fecharSugestao: () => void;
     /** Muda de secção (ex.: um aviso de credencial abre as Credenciais). */
     abrirSeparador: (s: Separador) => void;
     ticketAberto: number | null;

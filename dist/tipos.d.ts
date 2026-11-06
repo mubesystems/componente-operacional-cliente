@@ -5,8 +5,40 @@
 import type { ModeloDeCredencial } from "./credenciais.js";
 export type Estado = "relato" | "triagem" | "contencao" | "correcao" | "em_validacao" | "aguardando_aceite" | "concluida" | "descartada";
 export type Impacto = "impede" | "contorno" | "incomoda" | "cosmetico";
-/** Um erro (o de sempre) ou uma sugestão, uma ideia de melhoria (v0.7.0). */
-export type TipoDeTicket = "erro" | "sugestao";
+/** O que a pessoa envia no formulário: um erro vira ticket; uma sugestão tem secção própria (v0.8.0). */
+export type TipoDoPedido = "erro" | "sugestao";
+/** O estado de uma sugestão no software do cliente (v0.8.0). */
+export type EstadoDaSugestao = "recebida" | "vamos_fazer" | "feita" | "nao_avancou";
+export interface SugestaoResumo {
+    numero: number;
+    /** `S-EXC-5`. */
+    codigo: string;
+    titulo: string;
+    estado: EstadoDaSugestao;
+    estado_rotulo: string;
+    /** A resposta da Mube, quando há. */
+    resposta: string | null;
+    sugerido_por: {
+        id: string;
+        nome: string | null;
+        foto_url: string | null;
+    } | null;
+    recebida_em: string;
+}
+export interface SugestaoDetalhe extends SugestaoResumo {
+    texto: string | null;
+    anexos: {
+        id: string;
+        nome: string;
+        tipo_mime: string;
+        tamanho_bytes: number;
+        url: string;
+    }[];
+    historico: {
+        rotulo: string;
+        em: string;
+    }[];
+}
 export interface Ficheiro {
     id: string;
     nome: string;
@@ -20,8 +52,6 @@ export interface TicketResumo {
     numero: number;
     codigo: string;
     titulo: string;
-    /** Erro ou sugestão (v0.7.0). Sem o campo (plataforma ou cópia antigas), é um erro. */
-    tipo?: TipoDeTicket;
     estado: Estado;
     estado_rotulo: string;
     prioridade: {
@@ -170,11 +200,13 @@ export interface Utilizador {
     drive?: boolean;
     /** Vê e envia as credenciais (S63). Sem este campo, vale a escolha feita em "Acessos" (por omissão, não). */
     credenciais?: boolean;
+    /** Vê as sugestões (v0.8.0). Sem este campo, vale a escolha feita em "Acessos" (por omissão, não). */
+    sugestoes?: boolean;
     /** Gere os acessos ao suporte (vê o separador "Acessos"). */
     gestor?: boolean;
 }
 /** Alguém da equipa do software do cliente, para o gestor escolher quem tem acesso. */
-export type PessoaDaEquipa = Omit<Utilizador, "liberado" | "drive" | "credenciais" | "gestor">;
+export type PessoaDaEquipa = Omit<Utilizador, "liberado" | "drive" | "credenciais" | "sugestoes" | "gestor">;
 /** Quem tem acesso ao suporte e se vê a Drive e as credenciais (só valem com o suporte). */
 export interface Liberado {
     id: string;
@@ -202,6 +234,8 @@ export interface Sessao {
      * Sem o campo (servidor antigo), vale `liberado`.
      */
     relatar?: boolean;
+    /** Vê a secção das sugestões (v0.8.0): uma permissão à parte do suporte, escolhida em Acessos. */
+    sugestoes?: boolean;
 }
 export type EstadoDoTour = "concluido" | "dispensado";
 export interface Acessos {
@@ -209,6 +243,7 @@ export interface Acessos {
         liberado: boolean;
         drive: boolean;
         credenciais: boolean;
+        sugestoes?: boolean;
     })[];
 }
 /** Um pedido da equipa da Mube por responder (S63). */

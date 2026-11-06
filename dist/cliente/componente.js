@@ -8,10 +8,11 @@ import { Credenciais } from "./credenciais.js";
 import { Drive } from "./drive.js";
 import { Notificacoes } from "./notificacoes.js";
 import { NovoRelato } from "./relato.js";
+import { Sugestoes } from "./sugestoes.js";
 import { Tickets } from "./tickets.js";
 import { BannerDoTour, Tour } from "./tour.js";
 import { Botao, BotaoIcone, Camada, Icone, Vazio } from "./ui.js";
-const SEPARADORES = ["tickets", "drive", "credenciais", "notificacoes", "acessos"];
+const SEPARADORES = ["tickets", "sugestoes", "drive", "credenciais", "notificacoes", "acessos"];
 /** v0.7.0: pode reportar (quem está liberado ou, com `relatosAbertos`, qualquer pessoa com sessão). */
 export const podeRelatar = (s) => Boolean(s?.utilizador && (s.relatar ?? s.liberado));
 const Ctx = createContext(null);
@@ -168,11 +169,16 @@ function useNoNavegador() {
 /** A secção e o ticket pedidos no endereço (`?secao=notificacoes`, `?ticket=12`), para os atalhos levarem ao sítio certo. */
 function doEndereco() {
     if (typeof window === "undefined")
-        return { secao: null, ticket: null };
+        return { secao: null, ticket: null, sugestao: null };
     const q = new URLSearchParams(window.location.search);
     const secao = q.get("secao");
     const ticket = Number(q.get("ticket"));
-    return { secao: secao && SEPARADORES.includes(secao) ? secao : null, ticket: Number.isInteger(ticket) && ticket > 0 ? ticket : null };
+    const sugestao = Number(q.get("sugestao"));
+    return {
+        secao: secao && SEPARADORES.includes(secao) ? secao : null,
+        ticket: Number.isInteger(ticket) && ticket > 0 ? ticket : null,
+        sugestao: Number.isInteger(sugestao) && sugestao > 0 ? sugestao : null,
+    };
 }
 // ─── A superfície: secções à esquerda (ou em baixo, no telemóvel) e o conteúdo ─
 function Superficie({ motor, sessao, rotulo, modo, aoFechar, sugestoes = false, }) {
@@ -181,6 +187,7 @@ function Superficie({ motor, sessao, rotulo, modo, aoFechar, sugestoes = false, 
     const [inicio] = useState(doEndereco);
     const [separador, setSeparador] = useState(inicio.secao ?? "tickets");
     const [ticketAberto, setTicketAberto] = useState(inicio.ticket);
+    const [sugestaoAberta, setSugestaoAberta] = useState(inicio.sugestao);
     const { avisos } = motor;
     // S65: o tour guiado. Feito ou dispensado fica no banco do software (nunca na plataforma).
     const [estadoDoTour, setEstadoDoTour] = useState(sessao.tour ?? null);
@@ -203,6 +210,12 @@ function Superficie({ motor, sessao, rotulo, modo, aoFechar, sugestoes = false, 
         ...(sessao.liberado
             ? [
                 { valor: "tickets", rotulo: "Tickets", icone: "Kanban" },
+            ]
+            : []),
+        // v0.8.0: uma permissão à parte do suporte, escolhida em Acessos.
+        ...(sessao.sugestoes ? [{ valor: "sugestoes", rotulo: "Sugestões", icone: "Ideia" }] : []),
+        ...(sessao.liberado
+            ? [
                 // Sem acesso à Drive (escolha do gestor em Acessos), o separador não aparece.
                 ...(sessao.drive ? [{ valor: "drive", rotulo: "Drive", icone: "Folder" }] : []),
                 // S63: as credenciais, também por escolha do gestor.
@@ -230,13 +243,20 @@ function Superficie({ motor, sessao, rotulo, modo, aoFechar, sugestoes = false, 
             setTicketAberto(n);
         },
         fecharTicket: () => setTicketAberto(null),
+        abrirSugestao: (n) => {
+            setSeparador("sugestoes");
+            setSugestaoAberta(n);
+        },
+        sugestaoAberta,
+        fecharSugestao: () => setSugestaoAberta(null),
         abrirSeparador: (s) => {
             setTicketAberto(null);
+            setSugestaoAberta(null);
             setSeparador(s);
         },
         sugestoes,
     };
-    return (_jsxs(Ctx.Provider, { value: contexto, children: [_jsxs("aside", { className: "mube:hidden mube:w-60 mube:shrink-0 mube:flex-col mube:border-r mube:border-border mube:bg-background mube:md:flex", children: [_jsxs("div", { "data-mube-tour": "suporte", className: "mube:flex mube:h-14 mube:items-center mube:gap-2 mube:pr-2 mube:pl-4", children: [_jsx("span", { className: "mube:flex mube:size-7 mube:items-center mube:justify-center mube:rounded-lg mube:bg-primary mube:text-primary-foreground", children: _jsx(Icone, { nome: "Comment" }) }), _jsx("h1", { className: "mube:flex-1 mube:truncate mube:text-label-strong mube:text-foreground", children: rotulo }), aoFechar && _jsx(BotaoIcone, { icone: "X", rotulo: "Fechar", onClick: aoFechar })] }), (sessao.liberado || sessao.gestor) && (_jsxs("nav", { "aria-label": "Sec\u00E7\u00F5es do suporte", className: "mube:flex mube:flex-1 mube:flex-col mube:gap-0.5 mube:px-2 mube:pt-2 mube:pb-3", children: [principais.map((s) => (_jsx(ItemLateral, { ...s, ativo: atual === s.valor, aoEscolher: () => contexto.abrirSeparador(s.valor) }, s.valor))), gestao.length > 0 && principais.length > 0 && _jsx("span", { "aria-hidden": true, className: "mube:mx-3 mube:my-2 mube:h-px mube:bg-border" }), gestao.map((s) => (_jsx(ItemLateral, { ...s, ativo: atual === s.valor, aoEscolher: () => contexto.abrirSeparador(s.valor) }, s.valor)))] })), (sessao.liberado || sessao.gestor) && estadoDoTour && (_jsx("div", { className: "mube:mt-auto mube:px-2 mube:pb-2", children: _jsxs("button", { type: "button", onClick: () => setEmTour(true), className: "mube:flex mube:h-9 mube:w-full mube:items-center mube:gap-2.5 mube:rounded-lg mube:px-3 mube:text-left mube:text-label-sm mube:text-muted-foreground mube:transition-colors mube:duration-150 mube:hover:bg-muted mube:hover:text-foreground mube:focus-visible:shadow-focus", children: [_jsx(Icone, { nome: "Play" }), "Rever o tour"] }) }))] }), _jsxs("div", { className: "mube:flex mube:min-w-0 mube:flex-1 mube:flex-col", children: [_jsxs("header", { className: "mube:flex mube:h-14 mube:shrink-0 mube:items-center mube:gap-2 mube:border-b mube:border-border mube:pr-3 mube:pl-4 mube:md:hidden", children: [_jsx("h1", { "data-mube-tour": "suporte", className: "mube:flex-1 mube:text-h4 mube:text-foreground", children: rotulo }), estadoDoTour && (sessao.liberado || sessao.gestor) && _jsx(BotaoIcone, { icone: "Play", rotulo: "Rever o tour", onClick: () => setEmTour(true) }), aoFechar && _jsx(BotaoIcone, { icone: "X", rotulo: "Fechar", onClick: aoFechar })] }), !sessao.liberado && !sessao.gestor ? (podeRelatar(sessao) ? (_jsxs(_Fragment, { children: [_jsx(Vazio, { icone: "Inbox", titulo: sugestoes ? "Reportar um problema ou dar uma sugestão" : "Reportar um problema", texto: "A equipa da Mube recebe o que enviar. Para acompanhar os pedidos aqui, pe\u00E7a acesso a quem gere o software na sua empresa.", acao: _jsx(Botao, { onClick: () => setRelatoAberto(true), children: sugestoes ? "Novo relato ou sugestão" : "Reportar um problema" }) }), relatoAberto && _jsx(NovoRelato, { aoFechar: () => setRelatoAberto(false), aoCriar: () => undefined })] })) : (_jsx(Vazio, { icone: "Inbox", titulo: "Sem acesso ao suporte deste projeto", texto: "Pe\u00E7a a quem gere o software na sua empresa para lhe dar acesso. Depois disso, pode reportar problemas e acompanhar os pedidos aqui." }))) : (_jsxs(_Fragment, { children: [_jsxs("main", { className: "mube:flex mube:min-h-0 mube:flex-1 mube:flex-col", children: [atual === "tickets" && _jsx(Tickets, {}), atual === "drive" && _jsx(Drive, {}), atual === "credenciais" && _jsx(Credenciais, {}), atual === "notificacoes" && _jsx(Notificacoes, {}), atual === "acessos" && _jsx(Acessos, {})] }), separadores.length > 1 && (_jsx("nav", { "aria-label": "Sec\u00E7\u00F5es do suporte", className: "mube:flex mube:shrink-0 mube:border-t mube:border-border mube:bg-card mube:md:hidden", children: separadores.map((s) => {
+    return (_jsxs(Ctx.Provider, { value: contexto, children: [_jsxs("aside", { className: "mube:hidden mube:w-60 mube:shrink-0 mube:flex-col mube:border-r mube:border-border mube:bg-background mube:md:flex", children: [_jsxs("div", { "data-mube-tour": "suporte", className: "mube:flex mube:h-14 mube:items-center mube:gap-2 mube:pr-2 mube:pl-4", children: [_jsx("span", { className: "mube:flex mube:size-7 mube:items-center mube:justify-center mube:rounded-lg mube:bg-primary mube:text-primary-foreground", children: _jsx(Icone, { nome: "Comment" }) }), _jsx("h1", { className: "mube:flex-1 mube:truncate mube:text-label-strong mube:text-foreground", children: rotulo }), aoFechar && _jsx(BotaoIcone, { icone: "X", rotulo: "Fechar", onClick: aoFechar })] }), (sessao.liberado || sessao.gestor || sessao.sugestoes) && (_jsxs("nav", { "aria-label": "Sec\u00E7\u00F5es do suporte", className: "mube:flex mube:flex-1 mube:flex-col mube:gap-0.5 mube:px-2 mube:pt-2 mube:pb-3", children: [principais.map((s) => (_jsx(ItemLateral, { ...s, ativo: atual === s.valor, aoEscolher: () => contexto.abrirSeparador(s.valor) }, s.valor))), gestao.length > 0 && principais.length > 0 && _jsx("span", { "aria-hidden": true, className: "mube:mx-3 mube:my-2 mube:h-px mube:bg-border" }), gestao.map((s) => (_jsx(ItemLateral, { ...s, ativo: atual === s.valor, aoEscolher: () => contexto.abrirSeparador(s.valor) }, s.valor)))] })), (sessao.liberado || sessao.gestor) && estadoDoTour && (_jsx("div", { className: "mube:mt-auto mube:px-2 mube:pb-2", children: _jsxs("button", { type: "button", onClick: () => setEmTour(true), className: "mube:flex mube:h-9 mube:w-full mube:items-center mube:gap-2.5 mube:rounded-lg mube:px-3 mube:text-left mube:text-label-sm mube:text-muted-foreground mube:transition-colors mube:duration-150 mube:hover:bg-muted mube:hover:text-foreground mube:focus-visible:shadow-focus", children: [_jsx(Icone, { nome: "Play" }), "Rever o tour"] }) }))] }), _jsxs("div", { className: "mube:flex mube:min-w-0 mube:flex-1 mube:flex-col", children: [_jsxs("header", { className: "mube:flex mube:h-14 mube:shrink-0 mube:items-center mube:gap-2 mube:border-b mube:border-border mube:pr-3 mube:pl-4 mube:md:hidden", children: [_jsx("h1", { "data-mube-tour": "suporte", className: "mube:flex-1 mube:text-h4 mube:text-foreground", children: rotulo }), estadoDoTour && (sessao.liberado || sessao.gestor) && _jsx(BotaoIcone, { icone: "Play", rotulo: "Rever o tour", onClick: () => setEmTour(true) }), aoFechar && _jsx(BotaoIcone, { icone: "X", rotulo: "Fechar", onClick: aoFechar })] }), !sessao.liberado && !sessao.gestor && !sessao.sugestoes ? (podeRelatar(sessao) ? (_jsxs(_Fragment, { children: [_jsx(Vazio, { icone: "Inbox", titulo: sugestoes ? "Reportar um problema ou dar uma sugestão" : "Reportar um problema", texto: "A equipa da Mube recebe o que enviar. Para acompanhar os pedidos aqui, pe\u00E7a acesso a quem gere o software na sua empresa.", acao: _jsx(Botao, { onClick: () => setRelatoAberto(true), children: sugestoes ? "Novo relato ou sugestão" : "Reportar um problema" }) }), relatoAberto && _jsx(NovoRelato, { aoFechar: () => setRelatoAberto(false), aoCriar: () => undefined })] })) : (_jsx(Vazio, { icone: "Inbox", titulo: "Sem acesso ao suporte deste projeto", texto: "Pe\u00E7a a quem gere o software na sua empresa para lhe dar acesso. Depois disso, pode reportar problemas e acompanhar os pedidos aqui." }))) : (_jsxs(_Fragment, { children: [_jsxs("main", { className: "mube:flex mube:min-h-0 mube:flex-1 mube:flex-col", children: [atual === "tickets" && _jsx(Tickets, {}), atual === "sugestoes" && _jsx(Sugestoes, {}), atual === "drive" && _jsx(Drive, {}), atual === "credenciais" && _jsx(Credenciais, {}), atual === "notificacoes" && _jsx(Notificacoes, {}), atual === "acessos" && _jsx(Acessos, {})] }), separadores.length > 1 && (_jsx("nav", { "aria-label": "Sec\u00E7\u00F5es do suporte", className: "mube:flex mube:shrink-0 mube:border-t mube:border-border mube:bg-card mube:md:hidden", children: separadores.map((s) => {
                                     const ativo = atual === s.valor;
                                     return (_jsxs("button", { type: "button", "data-mube-tour": s.valor, "aria-current": ativo ? "page" : undefined, onClick: () => contexto.abrirSeparador(s.valor), className: `mube:relative mube:flex mube:h-14 mube:flex-1 mube:flex-col mube:items-center mube:justify-center mube:gap-1 mube:text-label-sm mube:transition-colors ${ativo ? "mube:text-foreground" : "mube:text-muted-foreground"}`, children: [_jsx(Icone, { nome: s.icone, tamanho: 18 }), s.rotulo, s.n ? _jsx("span", { className: "mube:absolute mube:top-2 mube:left-[calc(50%+6px)] mube:size-2 mube:rounded-full mube:bg-primary" }) : null] }, s.valor));
                                 }) }))] }))] }), !estadoDoTour && !emTour && (sessao.liberado || sessao.gestor) && (_jsx(Camada, { children: _jsx(BannerDoTour, { aoComecar: () => setEmTour(true), aoDispensar: () => marcarTour("dispensado") }) })), emTour && (_jsx(Camada, { children: _jsx(Tour, { secoes: ["suporte", ...separadores.map((s) => s.valor)], aoSair: () => setEmTour(false), aoConcluir: () => {
@@ -437,6 +457,9 @@ export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = AT
             versao,
             ticketAberto: null,
             abrirTicket: (n) => ir(`ticket=${n}`),
+            abrirSugestao: (n) => ir(`secao=sugestoes&sugestao=${n}`),
+            sugestaoAberta: null,
+            fecharSugestao: () => { },
             abrirSeparador: (s) => ir(`secao=${s}`),
             fecharTicket: () => { },
             sugestoes,

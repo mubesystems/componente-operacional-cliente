@@ -37,10 +37,6 @@ export declare const rotuloDoEstado: (e: Estado) => string;
 export declare function SeloDeEstado({ estado }: {
     estado: Estado;
 }): import("react/jsx-runtime").JSX.Element;
-/** v0.7.0: uma sugestão (ideia de melhoria) distingue-se de um erro. Nos erros, nada. */
-export declare function SeloDeSugestao({ tipo }: {
-    tipo?: string | null;
-}): import("react/jsx-runtime").JSX.Element | null;
 export declare function SeloDePrioridade({ valor, rotulo }: {
     valor: string;
     rotulo: string;

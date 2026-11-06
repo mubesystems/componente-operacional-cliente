@@ -26,6 +26,7 @@ export function armazemEmMemoria() {
     const notificacoes = new Map();
     const lidas = new Set();
     let liberados = [];
+    let comSugestoes = [];
     let sincronizado = false;
     const tours = new Map();
     const conversas = new Map();
@@ -111,6 +112,12 @@ export function armazemEmMemoria() {
         },
         async definirLiberados(lista) {
             liberados = [...new Map(lista.map((l) => [l.id, { id: l.id, drive: l.drive, credenciais: l.credenciais }])).values()];
+        },
+        async acessosSugestoes() {
+            return [...comSugestoes];
+        },
+        async definirAcessosSugestoes(ids) {
+            comSugestoes = [...new Set(ids)];
         },
         async tour(utilizadorId) {
             return tours.get(utilizadorId) ?? null;
@@ -215,6 +222,27 @@ export function armazemSupabase(supabase, opcoes = {}) {
                 drive: l.drive !== false,
                 credenciais: l.credenciais === true,
             }));
+        },
+        async acessosSugestoes() {
+            const { data, error } = await supabase.from(t("acessos_sugestoes")).select("utilizador_id");
+            // Sem o SQL da 0.8 aplicado: ninguém tem a permissão, e o resto segue.
+            if (error)
+                return [];
+            return (data ?? []).map((l) => l.utilizador_id);
+        },
+        async definirAcessosSugestoes(ids) {
+            const novos = new Set(ids);
+            const { data, error: e0 } = await supabase.from(t("acessos_sugestoes")).select("utilizador_id");
+            falhou(e0);
+            const sair = (data ?? []).map((l) => l.utilizador_id).filter((id) => !novos.has(id));
+            if (sair.length) {
+                const { error } = await supabase.from(t("acessos_sugestoes")).delete().in("utilizador_id", sair);
+                falhou(error);
+            }
+            if (novos.size) {
+                const { error } = await supabase.from(t("acessos_sugestoes")).upsert([...novos].map((id) => ({ utilizador_id: id })), { onConflict: "utilizador_id" });
+                falhou(error);
+            }
         },
         async definirLiberados(lista) {
             const novos = new Map(lista.map((l) => [l.id, l]));

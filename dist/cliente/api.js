@@ -61,8 +61,12 @@ export function criarApi(base) {
         sessao: () => pedir("GET", "sessao"),
         tickets: () => pedir("GET", "tickets"),
         ticket: (numero) => pedir("GET", `tickets/${numero}`),
-        /** `tipo` (v0.7.0): `erro` (por omissão) ou `sugestao`; o impacto só é obrigatório nos erros. */
         relatar: (corpo) => pedir("POST", "relatos", corpo),
+        sugestoes: () => pedir("GET", "sugestoes"),
+        sugestao: (numero) => pedir("GET", `sugestoes/${numero}`),
+        sugerir: (corpo) => pedir("POST", "sugestoes", corpo),
+        /** O texto de um áudio já enviado (v0.8.0). */
+        transcrever: (ficheiro) => pedir("POST", "transcricoes", { ficheiro }),
         comentar: (numero, corpo, respostaA, ficheiros = []) => pedir("POST", `tickets/${numero}/comentarios`, { corpo, respostaA: respostaA ?? undefined, ficheiros }),
         aceitar: (numero) => pedir("POST", `tickets/${numero}/aceite`, {}),
         recusar: (numero, motivo, ficheiros) => pedir("POST", `tickets/${numero}/recusa`, { motivo, ficheiros }),
@@ -75,7 +79,7 @@ export function criarApi(base) {
         notificacoes: () => pedir("GET", "notificacoes"),
         marcarLidas: (ids) => pedir("POST", "notificacoes/lidas", { ids }),
         acessos: () => pedir("GET", "acessos"),
-        definirAcessos: (acessos) => pedir("PUT", "acessos", { acessos }),
+        definirAcessos: (acessos, sugestoes) => pedir("PUT", "acessos", { acessos, sugestoes }),
         credenciais: () => pedir("GET", "credenciais"),
         marcarTour: (estado) => pedir("POST", "tour", { estado }),
         enviarCredencial: (corpo) => pedir("POST", "credenciais", corpo),

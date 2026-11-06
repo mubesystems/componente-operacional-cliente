@@ -16,12 +16,12 @@
  * um id vindo do navegador.
  */
 import type { Armazem } from "./armazem.js";
-import type { Estado, PessoaDaEquipa, TicketNaCopia, TipoDeTicket, Utilizador } from "../tipos.js";
+import type { Estado, EstadoDaSugestao, PessoaDaEquipa, TicketNaCopia, Utilizador } from "../tipos.js";
 export { armazemEmMemoria, armazemSupabase, type Armazem, type ArmazemDeConversas } from "./armazem.js";
-export type { ConversaMube, Estado, MembroDaMube, MensagemMube, PessoaDaEquipa, TicketNaCopia, TipoDeTicket, Utilizador } from "../tipos.js";
+export type { ConversaMube, Estado, MembroDaMube, MensagemMube, PessoaDaEquipa, TicketNaCopia, Utilizador } from "../tipos.js";
 /**
  * Uma mudança de estado de um ticket (o evento `estado` do webhook), para o
- * gancho `aoMudarTicket` (v0.7.0). `relatadoPor` e `tipo` vêm do próprio
+ * gancho `aoMudarTicket` (v0.7.0). `relatadoPor` vem do próprio
  * evento: valem mesmo quando a cópia não conseguiu ler o ticket.
  */
 export interface MudancaDeTicket {
@@ -29,7 +29,6 @@ export interface MudancaDeTicket {
     ticket: TicketNaCopia;
     estado: Estado;
     estadoAnterior: Estado | null;
-    tipo: TipoDeTicket;
     /** Quem relatou, com o id do seu software; null se o ticket nasceu na Mube. */
     relatadoPor: {
         id: string;
@@ -87,6 +86,28 @@ export interface ConfiguracaoMube {
      * demorar mais deve ir para uma fila (ou o `after()` do Next).
      */
     aoMudarTicket?: (mudanca: MudancaDeTicket) => void | Promise<void>;
+    /**
+     * v0.8.0: chamado quando a Mube decide uma sugestão ou ela fica feita (evento
+     * `sugestao` do webhook), para o software avisar quem sugeriu. Um erro aqui
+     * fica no log e não falha o webhook; o evento não volta a ser tratado.
+     */
+    aoMudarSugestao?: (mudanca: MudancaDeSugestao) => void | Promise<void>;
+}
+/** Uma sugestão que mudou de estado, para o gancho `aoMudarSugestao` (v0.8.0). */
+export interface MudancaDeSugestao {
+    sugestao: {
+        numero: number;
+        codigo: string;
+        titulo: string;
+    };
+    estado: EstadoDaSugestao;
+    estadoAnterior: EstadoDaSugestao | null;
+    /** A resposta da Mube, quando há. */
+    resposta: string | null;
+    /** O id no software do cliente de quem sugeriu. */
+    sugeridoPor: {
+        id: string;
+    } | null;
 }
 export declare function criarRotasMube(config: ConfiguracaoMube): {
     GET: (request: Request, contexto: {
