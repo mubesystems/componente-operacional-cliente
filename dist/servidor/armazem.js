@@ -17,7 +17,8 @@ export function juntarMensagem(antes, nova) {
         return antes;
     return limpa;
 }
-const naoLidaPor = (m, utilizadorId, lidaAte) => !m.apagada && !(m.autor.tipo === "cliente" && m.autor.id === utilizadorId) && (!lidaAte || m.criada_em > lidaAte);
+// Pela hora, não pelo texto: "…00Z" e "…00.000Z" são a mesma hora.
+const naoLidaPor = (m, utilizadorId, lidaAte) => !m.apagada && !(m.autor.tipo === "cliente" && m.autor.id === utilizadorId) && (!lidaAte || Date.parse(m.criada_em) > Date.parse(lidaAte));
 /** Em memória: para desenvolvimento e testes. Perde-se ao reiniciar o servidor. */
 export function armazemEmMemoria() {
     const tickets = new Map();

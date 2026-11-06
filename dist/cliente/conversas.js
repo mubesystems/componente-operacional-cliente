@@ -9,10 +9,19 @@
  * avisos, S61): uma leitura da lista de cada vez e um só relógio. Sem sinal de
  * tempo real, volta a ler de 15 em 15 segundos e ao voltar ao separador; com
  * ele, o software chama `recarregarConversasMube()` (D8).
+ *
+ * v0.7.0: o contador do menu (`useNaoLidosMube`), que se monta em todas as
+ * páginas, já não lê a lista da plataforma. Conta na cópia do servidor do
+ * software (`GET conversas/por-ler`, mantida pelo webhook), de minuto a minuto,
+ * ao voltar à janela e com o sinal de tempo real. Só a lista e a conversa
+ * aberta (`useConversasMube`, `useMensagensMube`) falam com a plataforma; com
+ * elas montadas, o contador segue a lista e não pergunta nada.
  */
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from "react";
 import { criarApi, ErroDoSuporte } from "./api.js";
 const A_CADA_MS = 15_000;
+/** O contador do menu (v0.7.0): da cópia do servidor, de minuto a minuto. */
+const CONTADOR_A_CADA_MS = 60_000;
 /** Os membros da Mube mudam pouco: de 5 em 5 minutos chega. */
 const MEMBROS_A_CADA_MS = 5 * 60_000;
 const EVENTO = "mube:conversas";
@@ -21,20 +30,81 @@ const POR_PAGINA = 50;
 const DESLIGADAS = new Set(["rota_inexistente", "conversas_desligadas", "sem_sessao", "armazem_sem_conversas", "fora_da_equipa"]);
 const LISTA_INICIAL = { ativo: null, conversas: [], membros: [], conversaIndividual: false, defasado: false, erro: null, aCarregar: true };
 const CONVERSA_INICIAL = { conversa: null, mensagens: [], seguinte: null, defasado: false, erro: null, aCarregar: true };
+const CONTADOR_INICIAL = { ativo: null, naoLidos: 0 };
 const motores = new Map();
 function motorDe(base) {
     const existente = motores.get(base);
     if (existente)
         return existente;
-    const m = { api: criarApi(base), estado: LISTA_INICIAL, ouvintes: new Set(), montados: 0, pedido: null, membrosEm: 0, relogio: null, fios: new Map() };
+    const m = {
+        api: criarApi(base),
+        estado: LISTA_INICIAL,
+        ouvintes: new Set(),
+        montados: 0,
+        pedido: null,
+        membrosEm: 0,
+        relogio: null,
+        fios: new Map(),
+        contador: { estado: CONTADOR_INICIAL, montados: 0, pedido: null, relogio: null },
+    };
     motores.set(base, m);
     return m;
 }
 function mudarLista(m, parte) {
     m.estado = { ...m.estado, ...parte };
+    // A lista é a fonte mais fresca: o contador do menu segue-a.
+    if (m.estado.ativo !== null) {
+        const naoLidos = m.estado.ativo ? m.estado.conversas.reduce((n, c) => n + porLerDe(c), 0) : 0;
+        if (m.contador.estado.ativo !== m.estado.ativo || m.contador.estado.naoLidos !== naoLidos)
+            m.contador.estado = { ativo: m.estado.ativo, naoLidos };
+    }
     for (const o of m.ouvintes)
         o();
     acertarRelogio(m);
+}
+function mudarContador(m, estado) {
+    const atual = m.contador.estado;
+    if (atual.ativo !== estado.ativo || atual.naoLidos !== estado.naoLidos) {
+        m.contador.estado = estado;
+        for (const o of m.ouvintes)
+            o();
+    }
+    acertarRelogioDoContador(m);
+}
+/** O número por ler, da cópia do servidor (nunca da plataforma, salvo se a cópia falhar lá). */
+function recarregarContador(m) {
+    const c = m.contador;
+    // Com a lista montada, ela já lê (e alimenta o contador).
+    if (m.montados > 0)
+        return m.pedido ?? Promise.resolve();
+    if (c.pedido)
+        return c.pedido;
+    c.pedido = m.api
+        .porLerConversas()
+        .then((r) => {
+        // Se entretanto a lista montou, a dela é mais fresca.
+        if (m.montados === 0)
+            mudarContador(m, { ativo: true, naoLidos: r.naoLidos });
+    })
+        .catch((e) => {
+        if (DESLIGADAS.has(codigoDoErro(e)))
+            mudarContador(m, { ativo: false, naoLidos: 0 });
+        // Outra falha (rede, servidor): fica o último número; tenta de novo na próxima volta.
+    })
+        .finally(() => {
+        c.pedido = null;
+    });
+    return c.pedido;
+}
+function acertarRelogioDoContador(m) {
+    const c = m.contador;
+    const ligado = c.montados > 0 && m.montados === 0 && c.estado.ativo !== false;
+    if (ligado && c.relogio == null)
+        c.relogio = window.setInterval(() => void recarregarContador(m), CONTADOR_A_CADA_MS);
+    if (!ligado && c.relogio != null) {
+        window.clearInterval(c.relogio);
+        c.relogio = null;
+    }
 }
 function mudarFio(f, parte) {
     f.estado = { ...f.estado, ...parte };
@@ -112,9 +182,18 @@ function ligarOuvintesGlobais() {
     document.addEventListener("visibilitychange", () => {
         if (document.visibilityState !== "visible")
             return;
-        for (const m of motores.values())
+        for (const m of motores.values()) {
             if (m.montados > 0)
                 void recarregarLista(m);
+            else if (m.contador.montados > 0)
+                void recarregarContador(m);
+        }
+    });
+    // O contador também ao voltar à janela (o separador pode ter estado sempre visível).
+    window.addEventListener("focus", () => {
+        for (const m of motores.values())
+            if (m.montados === 0 && m.contador.montados > 0)
+                void recarregarContador(m);
     });
     // O sinal de tempo real do software (D8): ler já, sem esperar pelos 15 segundos.
     window.addEventListener(EVENTO, (e) => {
@@ -124,6 +203,8 @@ function ligarOuvintesGlobais() {
                 continue;
             if (m.montados > 0)
                 void recarregarLista(m);
+            else if (m.contador.montados > 0)
+                void recarregarContador(m);
             const f = conversaId ? m.fios.get(conversaId) : undefined;
             if (f && f.montados > 0)
                 void recarregarFio(m, conversaId, f);
@@ -144,12 +225,25 @@ export function recarregarConversasMube(conversaId, base) {
 function montar(m) {
     m.montados += 1;
     acertarRelogio(m);
+    acertarRelogioDoContador(m);
     if (m.estado.aCarregar || m.montados === 1)
         void recarregarLista(m);
 }
 function desmontar(m) {
     m.montados -= 1;
     acertarRelogio(m);
+    // Saiu a lista (ex.: da página do chat para outra): o contador volta a contar sozinho.
+    acertarRelogioDoContador(m);
+}
+function montarContador(m) {
+    m.contador.montados += 1;
+    acertarRelogioDoContador(m);
+    if (m.contador.montados === 1 || m.contador.estado.ativo === null)
+        void recarregarContador(m);
+}
+function desmontarContador(m) {
+    m.contador.montados -= 1;
+    acertarRelogioDoContador(m);
 }
 function abrirFio(m, conversaId, f) {
     f.montados += 1;
@@ -209,10 +303,27 @@ export function useConversasMube({ base = "/api/mube" } = {}) {
         recarregar,
     }), [estado, abrirIndividual, recarregar]);
 }
-/** O número de mensagens por ler nas conversas com a Mube, para o menu do software. */
+/**
+ * O número de mensagens por ler nas conversas com a Mube, para o menu do
+ * software. Desde a 0.7.0 conta na cópia do servidor do software (sem ir à
+ * plataforma), de minuto a minuto, ao voltar à janela e com
+ * `recarregarConversasMube()`; precisa do webhook configurado (§3.7 do GUIA).
+ */
 export function useNaoLidosMube({ base = "/api/mube" } = {}) {
-    const { estado } = useMotorDeConversas(base);
-    return { ativo: estado.ativo, naoLidos: estado.conversas.reduce((n, c) => n + porLerDe(c), 0) };
+    const m = useMemo(() => motorDe(base), [base]);
+    const subscrever = useCallback((avisar) => {
+        m.ouvintes.add(avisar);
+        return () => {
+            m.ouvintes.delete(avisar);
+        };
+    }, [m]);
+    const estado = useSyncExternalStore(subscrever, () => m.contador.estado, () => CONTADOR_INICIAL);
+    useEffect(() => {
+        ligarOuvintesGlobais();
+        montarContador(m);
+        return () => desmontarContador(m);
+    }, [m]);
+    return { ativo: estado.ativo, naoLidos: estado.naoLidos };
 }
 /**
  * Uma conversa aberta: as mensagens (da mais antiga para a mais recente),

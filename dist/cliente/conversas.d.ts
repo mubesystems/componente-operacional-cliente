@@ -32,7 +32,12 @@ export declare function useConversasMube({ base }?: {
     abrirIndividual: (pessoaId: string) => Promise<ConversaMube>;
     recarregar: () => Promise<void>;
 };
-/** O número de mensagens por ler nas conversas com a Mube, para o menu do software. */
+/**
+ * O número de mensagens por ler nas conversas com a Mube, para o menu do
+ * software. Desde a 0.7.0 conta na cópia do servidor do software (sem ir à
+ * plataforma), de minuto a minuto, ao voltar à janela e com
+ * `recarregarConversasMube()`; precisa do webhook configurado (§3.7 do GUIA).
+ */
 export declare function useNaoLidosMube({ base }?: {
     base?: string;
 }): {

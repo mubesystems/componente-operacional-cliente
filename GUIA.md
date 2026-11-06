@@ -48,7 +48,7 @@ A chave mostra-se **uma vez** ao ser criada. Guarda-a já nas variáveis do proj
 ### 3.1 O pacote
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.6.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.7.0
 ```
 
 Usa sempre a **última tag** do repositório ([lista de versões](https://github.com/mubesystems/componente-operacional-cliente/tags)). Não é preciso `.npmrc` nem token.
@@ -179,10 +179,10 @@ import { abrirRelatoMube } from "@mubesystems/componente-operacional"
 
 | Peça | Opções | Para quê |
 |---|---|---|
-| `PaginaMube` | `base`, `rotulo`, `tema`, `moldura`, `className` | a página inteira: Tickets, Drive, Credenciais, Notificações, Acessos. Ocupa a área e a altura do contentor, sem moldura, com o espaço da barra do iPhone em baixo; `className` para dar a altura; `moldura` põe a borda e os cantos (um cartão, no mínimo 640 px). Os painéis (detalhe do ticket, novo relato, credenciais, ficheiros) abrem no fim da página, por cima de tudo, sem precisar de z-index no projeto. Aceita `?secao=notificacoes` (ou `tickets`, `drive`, `credenciais`, `acessos`) e `?ticket=12` no endereço |
+| `PaginaMube` | `base`, `rotulo`, `tema`, `moldura`, `className`, `sugestoes` | a página inteira: Tickets, Drive, Credenciais, Notificações, Acessos. Ocupa a área e a altura do contentor, sem moldura, com o espaço da barra do iPhone em baixo; `className` para dar a altura; `moldura` põe a borda e os cantos (um cartão, no mínimo 640 px). Os painéis (detalhe do ticket, novo relato, credenciais, ficheiros) abrem no fim da página, por cima de tudo, sem precisar de z-index no projeto. Aceita `?secao=notificacoes` (ou `tickets`, `drive`, `credenciais`, `acessos`) e `?ticket=12` no endereço |
 | `useNovidadesMube` | `base` | `{ acesso, porLer, ultimo, aCarregar }` para o item do menu |
 | `ContadorMube` | `base`, `className` | o número por ler para o item do menu (99+ acima de 99); sem novidades ou sem acesso, nada. Sem `className`, a pílula do componente; com `className`, só o número, com o estilo do projeto |
-| `RelatarMube` | `base`, `href`, `atalho`, `tema`, `navegar` | o "Reportar um problema" em qualquer página (passo 4). `atalho` muda a combinação (ex.: `"mod+shift+k"`, com `mod` = ⌘ no Mac e Ctrl no Windows) ou desliga-a com `false`; `navegar` é como abrir a página do suporte no "Ver o ticket" (ex.: `router.push`; por omissão, `location.assign`). Só abre a quem tem acesso ao suporte |
+| `RelatarMube` | `base`, `href`, `atalho`, `tema`, `navegar`, `sugestoes` | o "Reportar um problema" em qualquer página (passo 4). `atalho` muda a combinação (ex.: `"mod+shift+k"`, com `mod` = ⌘ no Mac e Ctrl no Windows) ou desliga-a com `false`; `navegar` é como abrir a página do suporte no "Ver o ticket" (ex.: `router.push`; por omissão, `location.assign`); `sugestoes` deixa escolher entre «Erro» e «Sugestão» (§3.9). Só abre a quem tem acesso ao suporte (ou a todos, com `relatosAbertos`, §3.9) |
 | `abrirRelatoMube()` | — | abre o `RelatarMube` montado na página (para um botão ou item de menu do projeto) |
 | `AvisoMube` | `base`, `href`, `rotulo`, `tema`, `posicao` | o aviso no canto, só com novidades; não aparece na própria página. O X fecha-o até o navegador fechar. A altura vem de `--mube-aviso-baixo` (por omissão `1.25rem`): no CSS do projeto, ex.: `:root { --mube-aviso-baixo: calc(env(safe-area-inset-bottom) + 5rem) }` para ficar por cima de uma barra de navegação |
 
@@ -262,7 +262,9 @@ const { naoLidos } = useNaoLidosMube()
 
 Cada pessoa vê só as conversas em que participa (o servidor confere pela sessão; a plataforma confere de novo ao enviar). Com a plataforma em baixo, as conversas leem-se da cópia (`defasado: true`: mostrar que podem estar atrasadas) e enviar falha com uma mensagem clara. As mensagens das conversas **não** entram nas notificações do suporte (`useNovidadesMube` não muda): os avisos de mensagem nova são do próprio chat do software.
 
-**3. Tempo real (opcional).** Sem nada, os hooks voltam a ler de 15 em 15 segundos e ao voltar ao separador. Para ser imediato, o servidor chama `aoMudarConversas(conversaId, utilizadoresIds)` depois de guardar cada mensagem ou mudança, com os ids (do software) de quem vê a conversa. O software manda o **seu** sinal a essas pessoas, sem dados, e no navegador chama `recarregarConversasMube(conversaId)`. Por exemplo, com o Realtime do Supabase do software (broadcast, sem abrir as tabelas `mube_*` ao navegador):
+**O contador do menu (`useNaoLidosMube`) depende do webhook.** Desde a 0.7 conta na **cópia** do Supabase do projeto (`mube_mensagens`, `mube_conversa_participantes` e `mube_conversa_leituras`), pela rota do servidor, sem perguntar nada à Mube: de minuto a minuto, ao voltar à janela e com o sinal de tempo real (passo 3). Como se monta em todas as páginas, até à 0.6 cada pessoa pedia a lista à plataforma de 15 em 15 segundos em qualquer página. A cópia só se mantém em dia com o **webhook configurado** (§3.6 e §3.7), que traz cada mensagem nova; sem ele, o número fica parado. Só a lista e a conversa aberta (`useConversasMube`, `useMensagensMube`) falam com a plataforma, e com elas montadas o contador segue a lista. Se a cópia falhar (o SQL por reaplicar), o servidor pergunta à plataforma, como antes.
+
+**3. Tempo real (opcional).** Sem nada, a lista e a conversa aberta voltam a ler de 15 em 15 segundos e ao voltar ao separador (o contador do menu, de minuto a minuto). Para ser imediato, o servidor chama `aoMudarConversas(conversaId, utilizadoresIds)` depois de guardar cada mensagem ou mudança, com os ids (do software) de quem vê a conversa. O software manda o **seu** sinal a essas pessoas, sem dados, e no navegador chama `recarregarConversasMube(conversaId)`. Por exemplo, com o Realtime do Supabase do software (broadcast, sem abrir as tabelas `mube_*` ao navegador):
 
 ```ts
 // no servidor (criarRotasMube)
@@ -287,12 +289,46 @@ O sinal só diz "mudou": os hooks voltam a ler pela rota do servidor, que é que
 
 > **Atenção à cópia:** o Supabase do projeto guarda **todas** as conversas do projeto com a Mube, também as individuais de outras pessoas. O componente só mostra a cada pessoa as suas, mas quem tem acesso direto à base de dados (o SQL Editor, a service role) consegue lê-las, como já hoje com os tickets.
 
+### 3.9 Sugestões, relatos abertos e avisar quem reportou (opcional, desde a 0.7)
+
+Três opções, todas **desligadas por omissão**: sem elas, o pacote faz exatamente o mesmo que a 0.6 (só os liberados reportam, só erros).
+
+**1. Sugestões.** Com `sugestoes`, o formulário do relato começa por perguntar «Erro» ou «Sugestão». Na sugestão (uma ideia de melhoria), o texto de ajuda fala da ideia e o impacto não se pede. A Mube recebe-a nas Correções, com a etiqueta «Sugestão»; no componente, os tickets mostram a mesma etiqueta.
+
+```tsx
+<RelatarMube href="/suporte" sugestoes />
+<PaginaMube sugestoes />
+```
+
+**2. Relatos abertos.** Com `relatosAbertos: true` na rota do servidor, **qualquer pessoa com sessão** no software reporta (e envia os ficheiros do relato), liberada ou não. Acompanhar os tickets, comentar, aceitar e recusar, a Drive, as credenciais e as notificações continuam só para quem tem acesso ao suporte (`403 nao_liberado` para os outros). Para quem não está liberado, o `<RelatarMube />` abre na mesma, a confirmação não tem "Ver o ticket" e a página do suporte mostra só o botão para reportar; o aviso "O seu relato foi recebido" não se grava (essa pessoa não lê a central). Quem pode reportar é quem o software deixa entrar: se precisar de um limite (ex.: 20 por hora por pessoa), põe-no antes de chamar a rota.
+
+**3. Avisar quem reportou: `aoMudarTicket`.** Chamado em cada mudança de estado de um ticket (o evento `estado` do webhook), depois de a cópia se atualizar, com `{ ticket, estado, estadoAnterior, tipo, relatadoPor }`. `relatadoPor` é `{ id, nome }` com o id **do seu software** (ou `null` se o ticket nasceu na Mube). Serve para o software avisar quem pediu pelos seus próprios canais (a central de notificações do software, um email), também quem não tem acesso aos tickets:
+
+```ts
+export const { GET, POST, PUT, PATCH, DELETE } = criarRotasMube({
+  armazem: armazemSupabase(supabase),
+  utilizador: async () => { /* … como antes … */ },
+  relatosAbertos: true,
+  aoMudarTicket: async ({ ticket, estado, tipo, relatadoPor }) => {
+    if (!relatadoPor || (estado !== "concluida" && estado !== "descartada")) return
+    const oQue = tipo === "sugestao" ? "A sua sugestão" : "O problema que reportou"
+    await criarNotificacaoDoSoftware(relatadoPor.id, {
+      titulo: estado === "concluida" ? `${oQue} foi resolvido (${ticket.codigo})` : `${oQue} foi encerrado (${ticket.codigo})`,
+      corpo: ticket.titulo ?? null,
+    })
+  },
+})
+```
+
+Um erro no gancho fica no log (`[mube] aoMudarTicket`) e **não falha o webhook**: a resposta à Mube é 200 e o evento não volta a ser tratado (não há segunda tentativa do aviso). O webhook tem de responder em 10 s: o pacote espera pelo gancho até 5 s e depois responde sem ele. Um aviso mais lento (ex.: um email por um serviço externo) vai para uma fila ou para o `after()` do Next.
+
 ---
 
 ## 4. O que cada um faz
 
 | Quem | O quê |
 |---|---|
+| **Qualquer pessoa com sessão** | com `relatosAbertos` (§3.9), reporta um problema ou uma sugestão; não vê os tickets |
 | **Pessoas liberadas** | reportam um problema (texto, áudio gravado, ficheiros, impacto), acompanham os tickets em kanban, conversam com a equipa, aceitam ou recusam a correção, usam a Drive (se tiverem acesso a ela), enviam as credenciais pedidas (idem) e recebem os avisos |
 | **Gestor** | tudo isso, mais o separador Acessos |
 | **Mube (Operacional)** | triagem, prioridade, prazo, estados, comentários (internos ou para o cliente), menções a pessoas do cliente, Drive com controlo do que o cliente vê, pedidos de credenciais |
@@ -329,12 +365,13 @@ Criada pelo SQL da §3.3. Todas as tabelas têm **RLS ligada e sem políticas**:
 |---|---|
 | `id`, `numero`, `codigo` | identificadores (`codigo` = `COR-012`) |
 | `titulo`, `estado`, `estado_rotulo` | o título e o estado, com o rótulo pronto |
+| `tipo` | `erro` ou `sugestao` (desde a 0.7; sem o campo, um erro) |
 | `prioridade` | `{ valor, rotulo }` (urgente, alta, média, baixa), definida pela Mube |
 | `prazo` | data, quando a Mube o define |
 | `reaberturas` | quantas vezes foi recusado |
 | `relatado_por` | `{ id, nome, foto_url }` (o id é o do software do projeto) |
 | `contagens` | `{ comentarios, anexos }` que o cliente vê |
-| `relatos` | o relato original: `texto`, `impacto` (`impede`, `contorno`, `incomoda`, `cosmetico`), `anexos` |
+| `relatos` | o relato original: `texto`, `impacto` (`impede`, `contorno`, `incomoda`, `cosmetico`; `null` numa sugestão sem impacto), `anexos` |
 | `comentarios` | só os **externos**: `autor`, `corpo`, `anexos`, `mencoes`, `editado`, `apagado` |
 | `linha_do_tempo` | `[{ estado, em }]` |
 | `descarte` | `{ rotulo, motivo }` neutro, quando encerrado |
@@ -394,7 +431,7 @@ X-Mube-Assinatura: sha256=<HMAC-SHA256 do corpo em bruto, com a chave do projeto
 
 | `tipo` | `dados` | O que o pacote faz |
 |---|---|---|
-| `estado` | `ticket`, `estado`, `estado_rotulo`, `estado_anterior` e, no encerramento, `descarte` | atualiza o ticket na cópia e cria o aviso |
+| `estado` | `ticket`, `estado`, `estado_rotulo`, `estado_anterior`, `tipo` (`erro`/`sugestao`), `relatado_por` (`{ id }` com o id do software, ou `null`) e, no encerramento, `descarte` | atualiza o ticket na cópia, cria o aviso e chama o `aoMudarTicket` (§3.9) |
 | `comentario_externo` | `ticket`, `comentario: { id, corpo, autor, criado_em, anexos, mencoes }` | atualiza o ticket e cria o aviso (como **menção** para os mencionados) |
 | `pedido_aceite` | `ticket`, `fase` (`entrada`, `lembrete`, `encerramento`), `envio`, `envios_necessarios` | cria o aviso "à espera do seu aceite" |
 | `notificacao` | `notificacao: { tipo, titulo, corpo }` (sem ticket; ex.: `tipo: "credencial"` quando a Mube pede uma credencial) | cria o aviso; o de credencial só aparece a quem tem as Credenciais e abre essa secção |
@@ -428,8 +465,8 @@ Os pedidos que escrevem levam quem age no corpo: `"utilizador": { "id": "<id no 
 | Método e caminho | Para quê |
 |---|---|
 | `PUT /api/v1/liberados` | a lista **completa** de liberados: `{ utilizadores: [{ id, nome?, email?, fotoUrl?, drive?, credenciais? }] }`; quem não vier deixa de estar liberado |
-| `POST /api/v1/ficheiros` → `PUT url_de_envio` → `POST /api/v1/ficheiros/{id}/confirmar` | enviar um ficheiro (qualquer tipo, sem limite) e obter o `id` |
-| `POST /api/v1/relatos` | relatar: `{ utilizador, texto?, impacto, ficheiros?, chaveIdempotencia? }` |
+| `POST /api/v1/ficheiros` → `PUT url_de_envio` → `POST /api/v1/ficheiros/{id}/confirmar` | enviar um ficheiro (qualquer tipo, sem limite) e obter o `id`; com `finalidade: "relato"`, qualquer pessoa (não só os liberados) |
+| `POST /api/v1/relatos` | relatar (qualquer pessoa do software): `{ utilizador, tipo?: "erro" \| "sugestao", texto?, impacto (nos erros), ficheiros?, chaveIdempotencia? }` |
 | `GET /api/v1/tickets` · `GET /api/v1/tickets/{numero}` | a lista (50 por página, `?antes=`, `?utilizador=`) e o detalhe |
 | `POST /api/v1/tickets/{numero}/comentarios` | comentar: `{ utilizador, corpo, respostaA?, ficheiros? }` |
 | `POST /api/v1/tickets/{numero}/aceite` · `/recusa` | aceitar `{ utilizador }`; recusar `{ utilizador, motivo, ficheiros? }` |
@@ -456,6 +493,12 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 2. `pnpm add github:mubesystems/componente-operacional-cliente#v<versão>`.
 3. Se a versão trouxer SQL novo (a Mube diz), **voltar a correr** o `componente-mube.sql` (§3.3). Correr sempre também não faz mal.
 4. Deploy.
+
+### Da 0.6 para a 0.7
+
+- **Sem SQL novo** (o tipo do ticket fica no `dados` de `mube_tickets`).
+- **Sugestões, relatos abertos e `aoMudarTicket`** (opcionais, desligados por omissão): §3.9. Sem as opções, nada muda.
+- **O contador do menu das conversas** (`useNaoLidosMube`) passa a contar na cópia, de minuto a minuto, sem ir à Mube: confirmar que o webhook está configurado (§3.7), senão o número não se atualiza. A forma de o usar não muda.
 
 ### Da 0.5 para a 0.6
 
@@ -516,3 +559,4 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 - [ ] Acessos escolhidos pelo gestor
 - [ ] Teste: um relato com um ficheiro, um comentário da Mube a chegar ao componente, um aceite
 - [ ] Com as conversas (§3.8): `conversas: true` e `equipa` na rota, SQL reaplicado, o grupo geral e os membros da Mube no chat, uma mensagem da central a chegar e a resposta a voltar
+- [ ] Com relatos abertos ou sugestões (§3.9): uma sugestão enviada por alguém sem acesso ao suporte a chegar às Correções, e o `aoMudarTicket` a avisá-lo quando a Mube a fecha

@@ -8,6 +8,7 @@
  *     utilizador: async () => { … quem tem sessão no software do cliente … },
  *     armazem: armazemSupabase(supabaseComServiceRole),
  *     // conversas: true,   // as conversas com a Mube (v0.6.0), desligadas por omissão
+ *     // relatosAbertos: true,   // qualquer pessoa reporta (v0.7.0), desligado por omissão
  *   })
  *
  * O navegador só fala com estas rotas; a chave do projeto fica aqui (requisito
@@ -20,6 +21,8 @@ import { textoDoMarkdown } from "../markdown.js";
 export { armazemEmMemoria, armazemSupabase } from "./armazem.js";
 const HORA_MS = 3_600_000;
 const MINUTO_MS = 60_000;
+/** Quanto o webhook espera pelo `aoMudarTicket` antes de responder (a plataforma dá 10 s). */
+const GANCHO_MS = 5_000;
 const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 class Falha extends Error {
     estado;
@@ -113,6 +116,21 @@ export function criarRotasMube(config) {
         catch (e) {
             console.error("[mube] aoMudarConversas", e);
         }
+    }
+    /** A equipa do software (de `config.equipa`), guardada 5 minutos: o contador pergunta muitas vezes. */
+    let equipaEmCache = null;
+    async function naEquipa(id) {
+        if (!config.equipa)
+            return true;
+        if (!equipaEmCache || Date.now() - equipaEmCache.em > 5 * MINUTO_MS) {
+            try {
+                equipaEmCache = { ids: new Set((await config.equipa()).map((p) => p.id)), em: Date.now() };
+            }
+            catch {
+                return true;
+            }
+        }
+        return equipaEmCache.ids.has(id);
     }
     async function enviarEquipa() {
         if (!config.equipa)
@@ -216,6 +234,28 @@ export function criarRotasMube(config) {
         // Os ficheiros de uma mensagem: basta estar na equipa (não é preciso o suporte).
         if (partes[1] === "ficheiros" && partes.length === 2 && metodo === "POST")
             return json(await enviarFicheiro(request, utilizador, "conversa"), 201);
+        // v0.7.0: o contador do menu (`useNaoLidosMube`) lê da cópia, sem ir à
+        // plataforma: os eventos `mensagem`/`conversa` do webhook e as leituras
+        // (`mube_conversa_leituras`) mantêm-na em dia. Se a cópia falhar (o SQL
+        // por reaplicar), pergunta-se à plataforma, como até à 0.6.
+        if (partes[1] === "por-ler" && partes.length === 2 && metodo === "GET") {
+            let lista;
+            let porLer;
+            try {
+                lista = await copia.conversasDe(quem.id);
+                porLer = await copia.porLer(quem.id, lista.map((c) => c.id));
+            }
+            catch (e) {
+                console.error("[mube] conversas: o contador não leu a cópia; pergunta à plataforma", e);
+                const r = await plataforma("GET", `/conversas?${quemNoUrl}`);
+                await naCopia(() => copia.guardarConversas(r.conversas));
+                return json({ naoLidos: r.conversas.reduce((n, c) => n + (c.por_ler ?? 0), 0), conversas: r.conversas.length, fonte: "plataforma" });
+            }
+            // Sem conversas na cópia: quem não está na equipa não tem as conversas ligadas (como a plataforma diria).
+            if (!lista.length && !(await naEquipa(quem.id)))
+                throw new Falha(403, "fora_da_equipa", "Não está na equipa deste software.");
+            return json({ naoLidos: [...porLer.values()].reduce((n, v) => n + v, 0), conversas: lista.length, fonte: "copia" });
+        }
         const id = partes[1];
         if (!id || !ID.test(id))
             throw new Falha(404, "conversa_inexistente", "Essa conversa não existe.");
@@ -281,7 +321,12 @@ export function criarRotasMube(config) {
         }
         if (partes[2] === "lidas" && partes.length === 3 && metodo === "POST") {
             const { ate } = await doPedido();
-            const quando = typeof ate === "string" && !Number.isNaN(Date.parse(ate)) ? new Date(Math.min(Date.parse(ate), Date.now())).toISOString() : new Date().toISOString();
+            // O `ate` (a hora da última mensagem) guarda-se tal como veio: as horas da
+            // plataforma têm microssegundos, e cortá-las aos milissegundos deixava a
+            // última mensagem por ler no contador da cópia (v0.7.0). Só não se aceita
+            // uma hora no futuro (com 5 min de folga para os relógios).
+            const lida = typeof ate === "string" ? Date.parse(ate) : Number.NaN;
+            const quando = typeof ate === "string" && !Number.isNaN(lida) && lida <= Date.now() + 5 * MINUTO_MS ? ate : new Date().toISOString();
             await naCopia(() => copia.marcarConversaLida(id, quem.id, quando));
             try {
                 await plataforma("POST", `/conversas/${id}/lidas`, { utilizador, ate: quando });
@@ -318,15 +363,22 @@ export function criarRotasMube(config) {
         if (!(await armazem.eventoNovo(evento.id)))
             return json({ ok: true, repetido: true });
         const ticket = evento.dados.ticket;
+        const tipoDoEvento = tipoDoTicket(evento.dados.tipo);
         if (ticket) {
             try {
                 await atualizarTicket(ticket.numero);
             }
             catch {
-                // Sem a leitura, fica pelo menos o estado que veio no evento.
+                // Sem a leitura, fica pelo menos o estado (e o tipo) que veio no evento.
                 if (evento.tipo === "estado") {
                     await armazem.guardarTickets([
-                        { numero: ticket.numero, codigo: ticket.codigo, estado: evento.dados.estado, estado_rotulo: ESTADOS[evento.dados.estado] },
+                        {
+                            numero: ticket.numero,
+                            codigo: ticket.codigo,
+                            estado: evento.dados.estado,
+                            estado_rotulo: ESTADOS[evento.dados.estado],
+                            ...(tipoDoEvento ? { tipo: tipoDoEvento } : {}),
+                        },
                     ]);
                 }
             }
@@ -334,8 +386,46 @@ export function criarRotasMube(config) {
         const aviso = notificacaoDoEvento(evento);
         if (aviso)
             await armazem.guardarNotificacao(aviso);
+        if (evento.tipo === "estado" && ticket)
+            await chamarAoMudarTicket(ticket, evento.dados);
         // 2xx dentro do tempo limite: conta como entregue (S28, S32).
         return json({ ok: true });
+    }
+    /**
+     * v0.7.0: o gancho do software, depois de a cópia se atualizar. Quem
+     * relatou e o tipo vêm do evento (a cópia de reserva, quando a leitura
+     * falha, não os tem); a cópia só completa o nome. Nunca falha o webhook:
+     * o evento já está marcado como visto e não volta a ser tratado.
+     */
+    async function chamarAoMudarTicket(ticket, dados) {
+        if (!config.aoMudarTicket)
+            return;
+        try {
+            const copia = await armazem.ticket(ticket.numero).catch(() => null);
+            const doEvento = dados.relatado_por;
+            const idDoEvento = typeof doEvento?.id === "string" && doEvento.id ? doEvento.id : null;
+            // Uma plataforma anterior à 0.7 não manda `relatado_por`: fica o da cópia.
+            const id = doEvento === undefined ? (copia?.relatado_por?.id ?? null) : idDoEvento;
+            const relatadoPor = id ? { id, nome: copia?.relatado_por?.id === id ? (copia.relatado_por.nome ?? null) : null } : null;
+            const estado = dados.estado;
+            const mudanca = {
+                ticket: copia ?? { numero: ticket.numero, codigo: ticket.codigo, estado, estado_rotulo: ESTADOS[estado] },
+                estado,
+                estadoAnterior: dados.estado_anterior ?? null,
+                tipo: tipoDoTicket(dados.tipo) ?? copia?.tipo ?? "erro",
+                relatadoPor,
+            };
+            let espera;
+            const tempo = new Promise((resolver) => {
+                espera = setTimeout(() => resolver("tempo"), GANCHO_MS);
+            });
+            const fim = await Promise.race([Promise.resolve(config.aoMudarTicket(mudanca)).then(() => "ok"), tempo]).finally(() => clearTimeout(espera));
+            if (fim === "tempo")
+                console.error(`[mube] aoMudarTicket: ${ticket.codigo} demorou mais de ${GANCHO_MS / 1000} s; o webhook respondeu sem esperar`);
+        }
+        catch (e) {
+            console.error("[mube] aoMudarTicket", e);
+        }
     }
     // ─── O pedido do navegador ────────────────────────────────────────────────
     async function tratar(request, contexto) {
@@ -354,10 +444,21 @@ export function criarRotasMube(config) {
             // As credenciais (S63) também se escolhem por pessoa; por omissão, não.
             const credenciais = liberado && (quem?.credenciais ?? escolha?.credenciais ?? false);
             const gestor = Boolean(quem?.gestor);
+            // v0.7.0: com `relatosAbertos`, qualquer pessoa com sessão reporta.
+            const podeRelatar = liberado || (Boolean(config.relatosAbertos) && Boolean(quem));
             if (metodo === "GET" && caminho === "sessao") {
                 // S65: se já fez o tour, só da cópia do próprio software.
                 const tour = quem && (liberado || gestor) ? await armazem.tour(quem.id).catch(() => null) : null;
-                return json({ utilizador: quem ? { id: quem.id, nome: quem.nome ?? null } : null, liberado, drive, credenciais, gestor, tour, conversas: Boolean(config.conversas) });
+                return json({
+                    utilizador: quem ? { id: quem.id, nome: quem.nome ?? null } : null,
+                    liberado,
+                    drive,
+                    credenciais,
+                    gestor,
+                    tour,
+                    conversas: Boolean(config.conversas),
+                    relatar: podeRelatar,
+                });
             }
             if (!quem)
                 throw new Falha(401, "sem_sessao", "Entre no software para usar o suporte.");
@@ -413,10 +514,19 @@ export function criarRotasMube(config) {
             const segmentos = caminho.split("/");
             if (segmentos[0] === "conversas" || segmentos[0] === "equipa-mube")
                 return await rotaDeConversas(request, metodo, segmentos, quem);
-            if (!liberado)
-                throw new Falha(403, "nao_liberado", "Não tem acesso ao suporte deste projeto.");
             const utilizador = { id: quem.id, nome: quem.nome ?? null, email: quem.email ?? null, fotoUrl: quem.fotoUrl ?? null };
             const corpo = async () => ({ ...(await request.json().catch(() => ({}))), utilizador });
+            // v0.7.0, `relatosAbertos`: quem não está liberado também reporta (e envia
+            // os ficheiros do relato). Antes do portão; tudo o resto continua fechado.
+            if (!liberado && config.relatosAbertos && metodo === "POST") {
+                if (caminho === "relatos")
+                    return await relatar(await corpo(), false);
+                // Sem acesso aos tickets, o único envio possível é o de um relato.
+                if (caminho === "ficheiros")
+                    return json(await enviarFicheiro(request, utilizador, "relato"), 201);
+            }
+            if (!liberado)
+                throw new Falha(403, "nao_liberado", "Não tem acesso ao suporte deste projeto.");
             const partes = caminho.split("/");
             // Tickets: lidos da cópia; o detalhe tenta a plataforma primeiro.
             if (metodo === "GET" && caminho === "tickets") {
@@ -440,21 +550,8 @@ export function criarRotasMube(config) {
                     return json({ ticket: copia, defasado: true });
                 }
             }
-            if (metodo === "POST" && caminho === "relatos") {
-                const r = await plataforma("POST", "/relatos", await corpo());
-                await armazem.guardarTickets([semUrls(r.ticket)]);
-                if (!r.repetido) {
-                    await armazem.guardarNotificacao({
-                        id: `recebido-${r.ticket.id}`,
-                        tipo: "recebido",
-                        ticket_numero: r.ticket.numero,
-                        titulo: "O seu relato foi recebido",
-                        corpo: `${r.ticket.codigo} entrou na fila de triagem.`,
-                        criado_em: new Date().toISOString(),
-                    });
-                }
-                return json(r, 201);
-            }
+            if (metodo === "POST" && caminho === "relatos")
+                return await relatar(await corpo(), true);
             if (metodo === "POST" && partes[0] === "tickets" && partes.length === 3 && ["comentarios", "aceite", "recusa"].includes(partes[2])) {
                 const r = await plataforma("POST", `/${caminho}`, await corpo());
                 await atualizarTicket(Number(partes[1])).catch(() => undefined);
@@ -508,6 +605,26 @@ export function criarRotasMube(config) {
             console.error("[mube]", e);
             return json({ erro: { codigo: "interno", mensagem: "Erro inesperado no suporte." } }, 500);
         }
+    }
+    /**
+     * O relato (um erro ou, desde a 0.7, uma sugestão). A cópia guarda sempre o
+     * ticket; o aviso "recebido" só a quem o pode ler (um liberado).
+     */
+    async function relatar(pedido, liberado) {
+        const r = await plataforma("POST", "/relatos", pedido);
+        await armazem.guardarTickets([semUrls(r.ticket)]);
+        if (!r.repetido && liberado) {
+            const sugestao = r.ticket.tipo === "sugestao";
+            await armazem.guardarNotificacao({
+                id: `recebido-${r.ticket.id}`,
+                tipo: "recebido",
+                ticket_numero: r.ticket.numero,
+                titulo: sugestao ? "A sua sugestão foi recebida" : "O seu relato foi recebido",
+                corpo: `${r.ticket.codigo} entrou na fila de triagem.`,
+                criado_em: new Date().toISOString(),
+            });
+        }
+        return json(r, 201);
     }
     async function enviarFicheiro(request, utilizador, finalidade) {
         if (!request.body)
@@ -580,6 +697,10 @@ export async function sincronizarEquipaMube(pessoas, config = {}) {
     if (!r.ok)
         throw new Error(dados?.erro?.mensagem ?? `A plataforma respondeu ${r.status}.`);
     return dados;
+}
+/** O tipo que veio num evento, se for um dos conhecidos. */
+function tipoDoTicket(valor) {
+    return valor === "erro" || valor === "sugestao" ? valor : null;
 }
 /** As URLs assinadas caducam numa hora: não vale a pena guardá-las na cópia. */
 function semUrls(t) {

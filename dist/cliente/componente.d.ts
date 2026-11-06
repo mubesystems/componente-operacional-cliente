@@ -15,7 +15,11 @@ interface Contexto {
     abrirSeparador: (s: Separador) => void;
     ticketAberto: number | null;
     fecharTicket: () => void;
+    /** v0.7.0: o novo relato deixa escolher entre erro e sugestão (opção `sugestoes`). */
+    sugestoes?: boolean;
 }
+/** v0.7.0: pode reportar (quem está liberado ou, com `relatosAbertos`, qualquer pessoa com sessão). */
+export declare const podeRelatar: (s: Sessao | null | undefined) => boolean;
 export declare const useSuporte: () => Contexto;
 type Tema = "claro" | "escuro" | "auto";
 /**
@@ -31,7 +35,7 @@ type Tema = "claro" | "escuro" | "auto";
  * Por omissão ocupa a área de conteúdo toda, sem moldura (o menu do software
  * fica ao lado), com o espaço da barra do iPhone reservado em baixo.
  */
-export declare function PaginaMube({ base, rotulo, tema, moldura, className, }: {
+export declare function PaginaMube({ base, rotulo, tema, moldura, className, sugestoes, }: {
     /** Onde está montada a parte servidor (o Route Handler `[...caminho]`). */
     base?: string;
     rotulo?: string;
@@ -41,6 +45,8 @@ export declare function PaginaMube({ base, rotulo, tema, moldura, className, }: 
     moldura?: boolean;
     /** Para dar a altura (por omissão, a altura do contentor). */
     className?: string;
+    /** v0.7.0: o novo relato deixa escolher entre «Erro» e «Sugestão». Por omissão, só erros. */
+    sugestoes?: boolean;
 }): import("react/jsx-runtime").JSX.Element;
 /**
  * Para o item do menu do software: se a pessoa tem acesso ao suporte (para
@@ -99,9 +105,11 @@ export declare function abrirRelatoMube(): void;
  * monta-se uma vez no layout com sessão e abre por cima da página com o atalho
  * (por omissão ⌥⇧R / Alt+Shift+R) ou com `abrirRelatoMube()`. Ao enviar, a
  * pessoa fica onde estava: a confirmação mostra o código, e "Ver o ticket"
- * leva à página do suporte. Só abre a quem tem acesso ao suporte.
+ * leva à página do suporte. Só abre a quem tem acesso ao suporte (ou, com
+ * `relatosAbertos: true` no servidor, a qualquer pessoa com sessão).
+ * Com `sugestoes`, a pessoa escolhe entre «Erro» e «Sugestão».
  */
-export declare function RelatarMube({ base, href, atalho, tema, navegar, }: {
+export declare function RelatarMube({ base, href, atalho, tema, navegar, sugestoes, }: {
     base?: string;
     /** O endereço da página do suporte (onde está o `PaginaMube`), para "Ver o ticket". */
     href?: string;
@@ -110,16 +118,20 @@ export declare function RelatarMube({ base, href, atalho, tema, navegar, }: {
     tema?: Tema;
     /** Como abrir a página do suporte (ex.: `router.push` do Next). Por omissão, `location.assign`. */
     navegar?: (url: string) => void;
+    /** v0.7.0: deixa escolher entre «Erro» e «Sugestão». Por omissão, só erros (o formulário de sempre). */
+    sugestoes?: boolean;
 }): import("react/jsx-runtime").JSX.Element | null;
 /**
  * O suporte numa janela por cima do software, aberta pelo botão "Suporte" no
  * canto. Continua a funcionar, mas a forma recomendada é a página
  * (`PaginaMube`) com o atalho no menu e o `AvisoMube`.
  */
-export declare function ComponenteMube({ base, rotulo, tema, posicao, }: {
+export declare function ComponenteMube({ base, rotulo, tema, posicao, sugestoes, }: {
     base?: string;
     rotulo?: string;
     tema?: Tema;
     posicao?: "direita" | "esquerda";
+    /** v0.7.0: o novo relato deixa escolher entre «Erro» e «Sugestão». */
+    sugestoes?: boolean;
 }): import("react").ReactPortal | null;
 export {};

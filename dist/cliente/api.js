@@ -61,6 +61,7 @@ export function criarApi(base) {
         sessao: () => pedir("GET", "sessao"),
         tickets: () => pedir("GET", "tickets"),
         ticket: (numero) => pedir("GET", `tickets/${numero}`),
+        /** `tipo` (v0.7.0): `erro` (por omissão) ou `sugestao`; o impacto só é obrigatório nos erros. */
         relatar: (corpo) => pedir("POST", "relatos", corpo),
         comentar: (numero, corpo, respostaA, ficheiros = []) => pedir("POST", `tickets/${numero}/comentarios`, { corpo, respostaA: respostaA ?? undefined, ficheiros }),
         aceitar: (numero) => pedir("POST", `tickets/${numero}/aceite`, {}),
@@ -84,6 +85,8 @@ export function criarApi(base) {
         enviar,
         // Conversas com a Mube (v0.6.0)
         conversas: () => pedir("GET", "conversas"),
+        /** v0.7.0: o número por ler, contado na cópia do servidor do software (sem ir à plataforma). */
+        porLerConversas: () => pedir("GET", "conversas/por-ler"),
         equipaMube: () => pedir("GET", "equipa-mube"),
         mensagens: (conversaId, antes) => pedir("GET", `conversas/${conversaId}/mensagens${antes ? `?antes=${encodeURIComponent(antes)}` : ""}`),
         escrever: (conversaId, corpo, opcoes = {}) => pedir("POST", `conversas/${conversaId}/mensagens`, { corpo, respostaA: opcoes.respostaA ?? undefined, ficheiros: opcoes.ficheiros ?? [] }),

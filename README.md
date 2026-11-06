@@ -22,7 +22,7 @@ O navegador nunca vê a chave do projeto: fala só com o servidor do próprio so
 Está no repositório público [`mubesystems/componente-operacional-cliente`](https://github.com/mubesystems/componente-operacional-cliente), já construído, com uma tag por versão. Instala-se direto do GitHub, **sem tokens** nem `.npmrc`:
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.6.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.7.0
 ```
 
 Usa a última versão das [tags do repositório](https://github.com/mubesystems/componente-operacional-cliente/tags) (a `v0.1.0` não funciona fora de um bundler). Para atualizar, troca a tag pela versão nova. Quando a versão nova traz colunas novas, corre outra vez o SQL do passo 3.
@@ -143,7 +143,18 @@ pacote dá só hooks sem ecrã — `useConversasMube()`, `useMensagensMube(id)`,
 (`aoMudarConversas` no servidor). Os membros da Mube vão no fim da lista da
 equipa; o geral e as TaskForces nos grupos. Estar numa conversa não dá acesso
 ao suporte. Atenção: a cópia guarda também as individuais de outras pessoas
-(quem lê a base diretamente vê-as). Ver o §3.8 do [`GUIA.md`](GUIA.md).
+(quem lê a base diretamente vê-as). Desde a 0.7, o `useNaoLidosMube()` conta na
+cópia (precisa do webhook configurado), sem ir à Mube. Ver o §3.8 do
+[`GUIA.md`](GUIA.md).
+
+### 8. Sugestões, relatos abertos e avisar quem reportou (opcional, desde a 0.7)
+
+`<RelatarMube sugestoes />` (e `<PaginaMube sugestoes />`) deixa escolher entre
+«Erro» e «Sugestão». No servidor, `relatosAbertos: true` deixa qualquer pessoa
+com sessão reportar (ler os tickets continua só para os liberados), e
+`aoMudarTicket({ ticket, estado, estadoAnterior, tipo, relatadoPor })` é
+chamado em cada mudança de estado, para o software avisar quem reportou. Tudo
+desligado por omissão. Ver o §3.9 do [`GUIA.md`](GUIA.md).
 
 ## Como funciona
 
@@ -163,6 +174,7 @@ Operacional.
 ```bash
 cd apps/operacional/componente
 pnpm construir      # tokens e ícones do Operacional → dist/ (JS, .d.ts, estilos.css, sql)
+pnpm test           # constrói e corre os testes da parte servidor (node:test, contra dist/)
 ```
 
 Em `pnpm dev:operacional`, `http://localhost:3004/exemplo-componente` mostra o

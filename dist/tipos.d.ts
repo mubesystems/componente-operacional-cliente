@@ -5,6 +5,8 @@
 import type { ModeloDeCredencial } from "./credenciais.js";
 export type Estado = "relato" | "triagem" | "contencao" | "correcao" | "em_validacao" | "aguardando_aceite" | "concluida" | "descartada";
 export type Impacto = "impede" | "contorno" | "incomoda" | "cosmetico";
+/** Um erro (o de sempre) ou uma sugestão, uma ideia de melhoria (v0.7.0). */
+export type TipoDeTicket = "erro" | "sugestao";
 export interface Ficheiro {
     id: string;
     nome: string;
@@ -18,6 +20,8 @@ export interface TicketResumo {
     numero: number;
     codigo: string;
     titulo: string;
+    /** Erro ou sugestão (v0.7.0). Sem o campo (plataforma ou cópia antigas), é um erro. */
+    tipo?: TipoDeTicket;
     estado: Estado;
     estado_rotulo: string;
     prioridade: {
@@ -76,7 +80,8 @@ export interface TicketDetalhe extends TicketResumo {
     relatos: {
         id: string;
         texto: string | null;
-        impacto: Impacto;
+        /** Nulo numa sugestão enviada sem impacto (v0.7.0). */
+        impacto: Impacto | null;
         recebido_em: string;
         utilizador: {
             id: string;
@@ -191,6 +196,12 @@ export interface Sessao {
     tour?: EstadoDoTour | null;
     /** As conversas com a Mube estão ligadas neste software (`conversas: true` em `criarRotasMube`). */
     conversas?: boolean;
+    /**
+     * Pode reportar um erro ou uma sugestão (v0.7.0): quem está liberado e, com
+     * `relatosAbertos: true` em `criarRotasMube`, qualquer pessoa com sessão.
+     * Sem o campo (servidor antigo), vale `liberado`.
+     */
+    relatar?: boolean;
 }
 export type EstadoDoTour = "concluido" | "dispensado";
 export interface Acessos {

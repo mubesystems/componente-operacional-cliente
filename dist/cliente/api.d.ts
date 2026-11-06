@@ -1,5 +1,5 @@
 import type { CamposDaCredencial, ModeloDeCredencial } from "../credenciais.js";
-import type { Acessos, ConversaMube, Credenciais, Drive, EstadoDoTour, Ficheiro, MembroDaMube, MensagemMube, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia } from "../tipos.js";
+import type { Acessos, ConversaMube, Credenciais, Drive, EstadoDoTour, Ficheiro, MembroDaMube, MensagemMube, NotificacaoLida, Sessao, TicketDetalhe, TicketNaCopia, TipoDeTicket } from "../tipos.js";
 export declare class ErroDoSuporte extends Error {
     readonly codigo: string;
     readonly estado: number;
@@ -18,9 +18,11 @@ export declare function criarApi(base: string): {
         ticket: TicketDetalhe;
         defasado: boolean;
     }>;
+    /** `tipo` (v0.7.0): `erro` (por omissão) ou `sugestao`; o impacto só é obrigatório nos erros. */
     relatar: (corpo: {
+        tipo?: TipoDeTicket;
         texto?: string;
-        impacto: string;
+        impacto?: string;
         ficheiros: string[];
         chaveIdempotencia: string;
     }) => Promise<{
@@ -77,6 +79,12 @@ export declare function criarApi(base: string): {
     conversas: () => Promise<{
         conversas: ConversaMube[];
         defasado: boolean;
+    }>;
+    /** v0.7.0: o número por ler, contado na cópia do servidor do software (sem ir à plataforma). */
+    porLerConversas: () => Promise<{
+        naoLidos: number;
+        conversas: number;
+        fonte: "copia" | "plataforma";
     }>;
     equipaMube: () => Promise<{
         membros: MembroDaMube[];

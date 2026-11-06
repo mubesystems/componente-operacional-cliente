@@ -41,6 +41,12 @@ export function SeloDeEstado({ estado }) {
     const s = ESTADO[estado] ?? ESTADO.relato;
     return _jsx("span", { className: `mube:inline-flex mube:h-5 mube:shrink-0 mube:items-center mube:rounded-full mube:px-2 mube:text-label-sm mube:whitespace-nowrap ${s.classe}`, children: s.rotulo });
 }
+/** v0.7.0: uma sugestão (ideia de melhoria) distingue-se de um erro. Nos erros, nada. */
+export function SeloDeSugestao({ tipo }) {
+    if (tipo !== "sugestao")
+        return null;
+    return _jsx("span", { className: "mube:inline-flex mube:h-5 mube:shrink-0 mube:items-center mube:rounded-full mube:border mube:border-border mube:px-2 mube:text-label-sm mube:whitespace-nowrap mube:text-muted-foreground", children: "Sugest\u00E3o" });
+}
 const PRIORIDADE = {
     urgente: "mube:text-priority-urgente-fg mube:bg-priority-urgente-bg",
     alta: "mube:text-priority-alta-fg mube:bg-priority-alta-bg",

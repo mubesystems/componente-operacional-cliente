@@ -1993,6 +1993,12 @@
     opacity: 40%;
   }
 }
+.mube\:has-\[\:focus-visible\]\:shadow-focus {
+  &:has(*:is(:focus-visible)) {
+    --tw-shadow: var(--sombra-focus);
+    box-shadow: var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+}
 .mube\:max-md\:hidden {
   @media (width < 48rem) {
     display: none;

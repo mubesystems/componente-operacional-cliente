@@ -8,6 +8,7 @@
  *     utilizador: async () => { … quem tem sessão no software do cliente … },
  *     armazem: armazemSupabase(supabaseComServiceRole),
  *     // conversas: true,   // as conversas com a Mube (v0.6.0), desligadas por omissão
+ *     // relatosAbertos: true,   // qualquer pessoa reporta (v0.7.0), desligado por omissão
  *   })
  *
  * O navegador só fala com estas rotas; a chave do projeto fica aqui (requisito
@@ -15,9 +16,26 @@
  * um id vindo do navegador.
  */
 import type { Armazem } from "./armazem.js";
-import type { PessoaDaEquipa, Utilizador } from "../tipos.js";
+import type { Estado, PessoaDaEquipa, TicketNaCopia, TipoDeTicket, Utilizador } from "../tipos.js";
 export { armazemEmMemoria, armazemSupabase, type Armazem, type ArmazemDeConversas } from "./armazem.js";
-export type { ConversaMube, MembroDaMube, MensagemMube, PessoaDaEquipa, Utilizador } from "../tipos.js";
+export type { ConversaMube, Estado, MembroDaMube, MensagemMube, PessoaDaEquipa, TicketNaCopia, TipoDeTicket, Utilizador } from "../tipos.js";
+/**
+ * Uma mudança de estado de um ticket (o evento `estado` do webhook), para o
+ * gancho `aoMudarTicket` (v0.7.0). `relatadoPor` e `tipo` vêm do próprio
+ * evento: valem mesmo quando a cópia não conseguiu ler o ticket.
+ */
+export interface MudancaDeTicket {
+    /** O ticket como ficou na cópia (sem os URLs assinados). */
+    ticket: TicketNaCopia;
+    estado: Estado;
+    estadoAnterior: Estado | null;
+    tipo: TipoDeTicket;
+    /** Quem relatou, com o id do seu software; null se o ticket nasceu na Mube. */
+    relatadoPor: {
+        id: string;
+        nome: string | null;
+    } | null;
+}
 export interface ConfiguracaoMube {
     /** Endereço do Operacional. Por omissão, `MUBE_URL`. */
     url?: string;
@@ -52,6 +70,23 @@ export interface ConfiguracaoMube {
      * ao navegador dessas pessoas; os hooks voltam a ler pela rota do servidor.
      */
     aoMudarConversas?: (conversaId: string, utilizadoresIds: string[]) => void | Promise<void>;
+    /**
+     * v0.7.0: qualquer pessoa com sessão no software pode reportar um erro ou
+     * uma sugestão (`POST relatos` e o envio dos ficheiros do relato), liberada
+     * ou não. Ler os tickets, comentar, aceitar e recusar continua só para os
+     * liberados. **Desligado por omissão**: sem a opção, quem não está liberado
+     * recebe `403 nao_liberado`, como até à 0.6.
+     */
+    relatosAbertos?: boolean;
+    /**
+     * v0.7.0: chamado em cada mudança de estado de um ticket (evento `estado`
+     * do webhook), depois de a cópia se atualizar. Para o software avisar quem
+     * reportou (ex.: quem não está liberado e não vê os tickets). Um erro aqui
+     * fica no log e não falha o webhook; o evento não volta a ser tratado.
+     * O webhook tem de responder em 10 s: o gancho espera-se até 5 s, e o que
+     * demorar mais deve ir para uma fila (ou o `after()` do Next).
+     */
+    aoMudarTicket?: (mudanca: MudancaDeTicket) => void | Promise<void>;
 }
 export declare function criarRotasMube(config: ConfiguracaoMube): {
     GET: (request: Request, contexto: {
