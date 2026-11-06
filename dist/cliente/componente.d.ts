@@ -101,9 +101,13 @@ export declare function AvisoMube({ base, href, rotulo, tema, posicao, }: {
  * Abre o "Reportar um problema" do `RelatarMube` montado na página. Para um
  * botão ou um item de menu do software:
  *
- *   <button onClick={abrirRelatoMube}>Reportar um problema</button>
+ *   <button onClick={() => abrirRelatoMube()}>Reportar um problema</button>
+ *   <button onClick={() => abrirRelatoMube("sugestao")}>Sugerir uma ideia</button>
+ *
+ * v0.8.1: `"sugestao"` abre já em «Sugestão» (precisa de `sugestoes` no
+ * `RelatarMube`). Qualquer outro valor, como o evento do clique, abre em «Erro».
  */
-export declare function abrirRelatoMube(): void;
+export declare function abrirRelatoMube(tipo?: unknown): void;
 /**
  * O "Reportar um problema" em qualquer página do software, sem ir ao suporte:
  * monta-se uma vez no layout com sessão e abre por cima da página com o atalho

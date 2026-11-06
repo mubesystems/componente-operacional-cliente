@@ -375,11 +375,16 @@ const ATALHO_DO_RELATO = "alt+shift+r";
  * Abre o "Reportar um problema" do `RelatarMube` montado na página. Para um
  * botão ou um item de menu do software:
  *
- *   <button onClick={abrirRelatoMube}>Reportar um problema</button>
+ *   <button onClick={() => abrirRelatoMube()}>Reportar um problema</button>
+ *   <button onClick={() => abrirRelatoMube("sugestao")}>Sugerir uma ideia</button>
+ *
+ * v0.8.1: `"sugestao"` abre já em «Sugestão» (precisa de `sugestoes` no
+ * `RelatarMube`). Qualquer outro valor, como o evento do clique, abre em «Erro».
  */
-export function abrirRelatoMube() {
-    if (typeof window !== "undefined")
-        window.dispatchEvent(new CustomEvent(EVENTO_RELATAR));
+export function abrirRelatoMube(tipo) {
+    if (typeof window === "undefined")
+        return;
+    window.dispatchEvent(new CustomEvent(EVENTO_RELATAR, { detail: { tipo: tipo === "sugestao" ? "sugestao" : "erro" } }));
 }
 function lerAtalho(texto) {
     const partes = texto.toLowerCase().split("+").map((p) => p.trim()).filter(Boolean);
@@ -417,17 +422,24 @@ export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = AT
     const escuro = useEscuro(tema);
     const noNavegador = useNoNavegador();
     const [aberto, setAberto] = useState(false);
+    const [pedido, setPedido] = useState(null);
     const sessao = motor.sessao;
     const pode = podeRelatar(sessao);
     useEffect(() => {
         if (!pode)
             return;
         const combinacao = atalho ? lerAtalho(atalho) : null;
-        const abrir = () => setAberto(true);
+        const abrir = (e) => {
+            const tipo = e.detail?.tipo;
+            // `vez` volta a montar o formulário, se já estava aberto no outro tipo.
+            setPedido((p) => (tipo ? { tipo, vez: (p?.vez ?? 0) + 1 } : null));
+            setAberto(true);
+        };
         const tecla = (e) => {
             if (!combinacao || e.repeat || !bate(combinacao, e))
                 return;
             e.preventDefault();
+            setPedido(null);
             setAberto(true);
         };
         window.addEventListener(EVENTO_RELATAR, abrir);
@@ -469,7 +481,7 @@ export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = AT
         return null;
     return (
     // Só dá a classe (e o tema) à janela, que abre por portal no fim da página.
-    _jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "contents" }, children: _jsx(Ctx.Provider, { value: contexto, children: _jsx(NovoRelato, { aoFechar: () => setAberto(false), aoCriar: () => sessao?.liberado && recarregarAvisos() }) }) }));
+    _jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "contents" }, children: _jsx(Ctx.Provider, { value: contexto, children: _jsx(NovoRelato, { tipoInicial: pedido?.tipo, aoFechar: () => setAberto(false), aoCriar: () => sessao?.liberado && recarregarAvisos() }, pedido?.vez ?? 0) }) }));
 }
 // ─── A janela flutuante (a forma antiga) ─────────────────────────────────────
 /**

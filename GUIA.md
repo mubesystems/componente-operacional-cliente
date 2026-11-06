@@ -48,7 +48,7 @@ A chave mostra-se **uma vez** ao ser criada. Guarda-a já nas variáveis do proj
 ### 3.1 O pacote
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.8.0
+pnpm add github:mubesystems/componente-operacional-cliente#v0.8.1
 ```
 
 Usa sempre a **última tag** do repositório ([lista de versões](https://github.com/mubesystems/componente-operacional-cliente/tags)). Não é preciso `.npmrc` nem token.
@@ -174,7 +174,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 "use client"
 import { abrirRelatoMube } from "@mubesystems/componente-operacional"
 
-<button onClick={abrirRelatoMube} title="⌥⇧R">Reportar um problema</button>
+<button onClick={() => abrirRelatoMube()} title="⌥⇧R">Reportar um problema</button>
+<button onClick={() => abrirRelatoMube("sugestao")}>Sugerir uma ideia</button>
 ```
 
 | Peça | Opções | Para quê |
@@ -183,7 +184,7 @@ import { abrirRelatoMube } from "@mubesystems/componente-operacional"
 | `useNovidadesMube` | `base` | `{ acesso, porLer, ultimo, aCarregar }` para o item do menu |
 | `ContadorMube` | `base`, `className` | o número por ler para o item do menu (99+ acima de 99); sem novidades ou sem acesso, nada. Sem `className`, a pílula do componente; com `className`, só o número, com o estilo do projeto |
 | `RelatarMube` | `base`, `href`, `atalho`, `tema`, `navegar`, `sugestoes` | o "Reportar um problema" em qualquer página (passo 4). `atalho` muda a combinação (ex.: `"mod+shift+k"`, com `mod` = ⌘ no Mac e Ctrl no Windows) ou desliga-a com `false`; `navegar` é como abrir a página do suporte no "Ver o ticket" (ex.: `router.push`; por omissão, `location.assign`); `sugestoes` deixa escolher entre «Erro» e «Sugestão» (§3.9). Só abre a quem tem acesso ao suporte (ou a todos, com `relatosAbertos`, §3.9) |
-| `abrirRelatoMube()` | — | abre o `RelatarMube` montado na página (para um botão ou item de menu do projeto) |
+| `abrirRelatoMube(tipo?)` | `"sugestao"` | abre o `RelatarMube` montado na página (para um botão ou item de menu do projeto); com `"sugestao"`, abre já em «Sugestão» (precisa de `sugestoes` no `RelatarMube`) |
 | `AvisoMube` | `base`, `href`, `rotulo`, `tema`, `posicao` | o aviso no canto, só com novidades; não aparece na própria página. O X fecha-o até o navegador fechar. A altura vem de `--mube-aviso-baixo` (por omissão `1.25rem`): no CSS do projeto, ex.: `:root { --mube-aviso-baixo: calc(env(safe-area-inset-bottom) + 5rem) }` para ficar por cima de uma barra de navegação |
 
 **Quem vê cada aviso:** os de um ticket vão a quem o relatou, a quem lá comentou do lado do cliente e a quem a equipa mencionou; o gestor dos acessos vê todos; os que não são de um ticket (ex.: um pedido de credencial) vão a todos com acesso. Só há aviso do que interessa ao cliente: relato recebido, resposta da equipa, pedido de aceite, ticket concluído e encerrado (não das etapas internas).
@@ -498,6 +499,11 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 2. `pnpm add github:mubesystems/componente-operacional-cliente#v<versão>`.
 3. Se a versão trouxer SQL novo (a Mube diz), **voltar a correr** o `componente-mube.sql` (§3.3). Correr sempre também não faz mal.
 4. Deploy.
+
+### Da 0.8.0 para a 0.8.1
+
+- **Sem SQL novo.**
+- **`abrirRelatoMube("sugestao")`** abre o formulário já em «Sugestão». Os atalhos do software devem abrir este formulário, com o `<RelatarMube sugestoes />` montado no layout, em vez de terem um formulário próprio.
 
 ### Da 0.7 para a 0.8
 

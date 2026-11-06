@@ -223,13 +223,13 @@ function lerRascunho() {
         return null;
     }
 }
-export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, aoSugerir, }) {
+export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial, aoSugerir, }) {
     const { api, abrirTicket, abrirSugestao, sessao, sugestoes = false } = useSuporte();
     const [inicial] = useState(lerRascunho);
     const [texto, setTexto] = useState(inicial?.texto ?? "");
     const [impacto, setImpacto] = useState(inicial?.impacto ?? null);
     // Sem a opção `sugestoes`, é sempre um erro (o formulário de sempre).
-    const [escolhido, setTipo] = useState(inicial?.tipo === "sugestao" ? "sugestao" : "erro");
+    const [escolhido, setTipo] = useState(tipoInicial ?? (inicial?.tipo === "sugestao" ? "sugestao" : "erro"));
     const tipo = soSugestao ? "sugestao" : sugestoes ? escolhido : "erro";
     const sugestao = tipo === "sugestao";
     // K10: a mesma chave em todos os reenvios deste rascunho.

@@ -1,5 +1,5 @@
 import type { Api } from "./api.js";
-import type { TicketDetalhe } from "../tipos.js";
+import type { TicketDetalhe, TipoDoPedido } from "../tipos.js";
 export interface Envio {
     chave: string;
     nome: string;
@@ -47,9 +47,11 @@ export declare function GravadorDeAudio({ aoGravar, gravado, aoRetirar, aoEstado
     aoRetirar?: () => void;
     aoEstado?: (aGravar: boolean) => void;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function NovoRelato({ aoFechar, aoCriar, soSugestao, aoSugerir, }: {
+export declare function NovoRelato({ aoFechar, aoCriar, soSugestao, tipoInicial, aoSugerir, }: {
     aoFechar: () => void;
     aoCriar?: (t: TicketDetalhe) => void;
+    /** v0.8.1: o tipo pedido por `abrirRelatoMube`; manda sobre o do rascunho. */
+    tipoInicial?: TipoDoPedido;
     /** v0.8.0: aberto na secção Sugestões, sem a escolha entre erro e sugestão. */
     soSugestao?: boolean;
     aoSugerir?: () => void;
