@@ -104,7 +104,7 @@ export declare function AvisoMube({ base, href, rotulo, tema, posicao, }: {
  *   <button onClick={() => abrirRelatoMube()}>Reportar um problema</button>
  *   <button onClick={() => abrirRelatoMube("sugestao")}>Sugerir uma ideia</button>
  *
- * v0.8.1: `"sugestao"` abre já em «Sugestão» (precisa de `sugestoes` no
+ * Numa janela modal do software, fecha-a primeiro. v0.8.1: `"sugestao"` abre já em «Sugestão» (precisa de `sugestoes` no
  * `RelatarMube`). Qualquer outro valor, como o evento do clique, abre em «Erro».
  */
 export declare function abrirRelatoMube(tipo?: unknown): void;
@@ -114,7 +114,9 @@ export declare function abrirRelatoMube(tipo?: unknown): void;
  * (por omissão ⌥⇧R / Alt+Shift+R) ou com `abrirRelatoMube()`. Ao enviar, a
  * pessoa fica onde estava: a confirmação mostra o código, e "Ver o ticket"
  * leva à página do suporte. Só abre a quem tem acesso ao suporte (ou, com
- * `relatosAbertos: true` no servidor, a qualquer pessoa com sessão).
+ * `relatosAbertos: true` no servidor, a qualquer pessoa com sessão); aos outros,
+ * e se a sessão não responder, mostra um aviso. A página onde a pessoa estava
+ * vai no fim do texto.
  * Com `sugestoes`, a pessoa escolhe entre «Erro» e «Sugestão».
  */
 export declare function RelatarMube({ base, href, atalho, tema, navegar, sugestoes, }: {

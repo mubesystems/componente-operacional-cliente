@@ -47,11 +47,13 @@ export declare function GravadorDeAudio({ aoGravar, gravado, aoRetirar, aoEstado
     aoRetirar?: () => void;
     aoEstado?: (aGravar: boolean) => void;
 }): import("react/jsx-runtime").JSX.Element;
-export declare function NovoRelato({ aoFechar, aoCriar, soSugestao, tipoInicial, aoSugerir, }: {
+export declare function NovoRelato({ aoFechar, aoCriar, soSugestao, tipoInicial, pagina, aoSugerir, }: {
     aoFechar: () => void;
     aoCriar?: (t: TicketDetalhe) => void;
     /** v0.8.1: o tipo pedido por `abrirRelatoMube`; manda sobre o do rascunho. */
     tipoInicial?: TipoDoPedido;
+    /** v0.8.2: a página onde a pessoa estava; vai no fim do texto. */
+    pagina?: string;
     /** v0.8.0: aberto na secção Sugestões, sem a escolha entre erro e sugestão. */
     soSugestao?: boolean;
     aoSugerir?: () => void;

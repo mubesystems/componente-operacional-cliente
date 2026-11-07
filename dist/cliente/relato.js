@@ -103,6 +103,7 @@ export function GravadorDeAudio({ aoGravar, gravado, aoRetirar, aoEstado, }) {
     const [url, setUrl] = useState(null);
     const [onda, setOnda] = useState([]);
     const gravador = useRef(null);
+    const fluxo = useRef(null);
     const inicio = useRef(0);
     const cancelado = useRef(false);
     const amostras = useRef([]);
@@ -122,6 +123,11 @@ export function GravadorDeAudio({ aoGravar, gravado, aoRetirar, aoEstado, }) {
         if (quadro.current != null)
             cancelAnimationFrame(quadro.current);
         void contexto.current?.close().catch(() => { });
+        // v0.8.2: fechar a gravar larga o microfone; no iOS, ele ficava preso.
+        cancelado.current = true;
+        if (gravador.current?.state === "recording")
+            gravador.current.stop();
+        fluxo.current?.getTracks().forEach((t) => t.stop());
     }, []);
     function ouvirVolume(stream) {
         try {
@@ -159,6 +165,7 @@ export function GravadorDeAudio({ aoGravar, gravado, aoRetirar, aoEstado, }) {
         setErro(null);
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            fluxo.current = stream;
             const partes = [];
             const r = new MediaRecorder(stream);
             r.ondataavailable = (e) => e.data.size && partes.push(e.data);
@@ -223,7 +230,7 @@ function lerRascunho() {
         return null;
     }
 }
-export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial, aoSugerir, }) {
+export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial, pagina, aoSugerir, }) {
     const { api, abrirTicket, abrirSugestao, sessao, sugestoes = false } = useSuporte();
     const [inicial] = useState(lerRascunho);
     const [texto, setTexto] = useState(inicial?.texto ?? "");
@@ -244,6 +251,13 @@ export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial,
     const [erro, setErro] = useState(null);
     const [criado, setCriado] = useState(null);
     const envios = useEnvios(api);
+    // v0.8.2: a meio do envio não se fecha. Com ref, para o `aoFechar` da janela ficar estável.
+    const aEnviar = useRef(false);
+    aEnviar.current = estado === "a_enviar";
+    const fechar = useCallback(() => {
+        if (!aEnviar.current)
+            aoFechar();
+    }, [aoFechar]);
     // Assim que o áudio sobe, pede-se o texto, uma vez por gravação.
     const idDoAudio = envios.envios.find((e) => e.chave === audio?.chave)?.id;
     useEffect(() => {
@@ -287,6 +301,7 @@ export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial,
             return;
         setEstado("a_enviar");
         setErro(null);
+        const corpo = [texto.trim(), pagina && `Página: ${pagina}`].filter(Boolean).join("\n\n") || undefined;
         try {
             const limpar = () => {
                 try {
@@ -297,13 +312,13 @@ export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial,
                 }
             };
             if (sugestao) {
-                const r = await api.sugerir({ texto: texto.trim() || undefined, ficheiros: envios.ids, chaveIdempotencia: chave });
+                const r = await api.sugerir({ texto: corpo, ficheiros: envios.ids, chaveIdempotencia: chave });
                 limpar();
                 setCriado({ numero: r.sugestao.numero, codigo: r.sugestao.codigo, tipo: "sugestao" });
                 aoSugerir?.();
             }
             else {
-                const r = await api.relatar({ texto: texto.trim() || undefined, impacto: impacto, ficheiros: envios.ids, chaveIdempotencia: chave });
+                const r = await api.relatar({ texto: corpo, impacto: impacto, ficheiros: envios.ids, chaveIdempotencia: chave });
                 limpar();
                 setCriado({ numero: r.ticket.numero, codigo: r.ticket.codigo, tipo: "erro" });
                 aoCriar?.(r.ticket);
@@ -336,10 +351,10 @@ export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial,
                                     ? "A equipa faz a triagem e o estado aparece no suporte e nas notificações."
                                     : "A equipa da Mube faz a triagem."] })] }) }));
     }
-    return (_jsxs(Janela, { titulo: sugestao ? "Nova sugestão" : "Novo relato", aoFechar: aoFechar, largura: "mube:md:w-[560px]", rodape: _jsxs(_Fragment, { children: [_jsx(Botao, { estilo: "secundario", onClick: aoFechar, children: "Cancelar" }), _jsx(Botao, { "data-principal": true, aCarregar: estado === "a_enviar", disabled: envios.aEnviar || aGravar, onClick: enviar, children: envios.aEnviar ? "A enviar ficheiros…" : sugestao ? "Enviar sugestão" : "Enviar relato" })] }), children: [estado === "sem_ligacao" && (_jsx("p", { role: "status", className: "mube:rounded-xl mube:bg-state-aguardando-aceite-bg mube:px-3 mube:py-2.5 mube:text-body-sm mube:text-state-aguardando-aceite-fg", children: "Sem liga\u00E7\u00E3o. O rascunho ficou guardado neste navegador; envie quando a liga\u00E7\u00E3o voltar." })), estado === "ligacao_voltou" && (_jsx("p", { role: "status", className: "mube:rounded-xl mube:bg-state-concluida-bg mube:px-3 mube:py-2.5 mube:text-body-sm mube:text-state-concluida-fg", children: "A liga\u00E7\u00E3o voltou. Pode enviar o relato." })), estado === "erro" && erro && _jsx("p", { className: "mube:rounded-xl mube:bg-state-contencao-bg mube:px-3 mube:py-2.5 mube:text-body-sm mube:text-state-contencao-fg", children: erro }), sugestoes && !soSugestao && (_jsxs("fieldset", { className: "mube:flex mube:flex-col mube:gap-2", children: [_jsx("legend", { className: "mube:mb-2 mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: "O que quer enviar?" }), _jsx("div", { className: "mube:flex mube:gap-1 mube:rounded-full mube:bg-muted mube:p-1", children: TIPOS.map((t) => {
+    return (_jsxs(Janela, { titulo: sugestao ? "Nova sugestão" : "Novo relato", aoFechar: fechar, largura: "mube:md:w-[560px]", rodape: _jsxs(_Fragment, { children: [_jsx(Botao, { estilo: "secundario", disabled: estado === "a_enviar", onClick: fechar, children: "Cancelar" }), _jsx(Botao, { "data-principal": true, aCarregar: estado === "a_enviar", disabled: envios.aEnviar || aGravar, onClick: enviar, children: envios.aEnviar ? "A enviar ficheiros…" : sugestao ? "Enviar sugestão" : "Enviar relato" })] }), children: [estado === "sem_ligacao" && (_jsx("p", { role: "status", className: "mube:rounded-xl mube:bg-state-aguardando-aceite-bg mube:px-3 mube:py-2.5 mube:text-body-sm mube:text-state-aguardando-aceite-fg", children: "Sem liga\u00E7\u00E3o. O rascunho ficou guardado neste navegador; envie quando a liga\u00E7\u00E3o voltar." })), estado === "ligacao_voltou" && (_jsx("p", { role: "status", className: "mube:rounded-xl mube:bg-state-concluida-bg mube:px-3 mube:py-2.5 mube:text-body-sm mube:text-state-concluida-fg", children: "A liga\u00E7\u00E3o voltou. Pode enviar o relato." })), estado === "erro" && erro && _jsx("p", { className: "mube:rounded-xl mube:bg-state-contencao-bg mube:px-3 mube:py-2.5 mube:text-body-sm mube:text-state-contencao-fg", children: erro }), sugestoes && !soSugestao && (_jsxs("fieldset", { className: "mube:flex mube:flex-col mube:gap-2", children: [_jsx("legend", { className: "mube:mb-2 mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: "O que quer enviar?" }), _jsx("div", { className: "mube:flex mube:gap-1 mube:rounded-full mube:bg-muted mube:p-1", children: TIPOS.map((t) => {
                             const ativo = tipo === t.valor;
                             return (_jsxs("label", { className: `mube:flex mube:h-8 mube:flex-1 mube:cursor-pointer mube:items-center mube:justify-center mube:rounded-full mube:text-label mube:transition-colors mube:duration-150 mube:has-[:focus-visible]:shadow-focus ${ativo ? "mube:bg-card mube:text-foreground mube:shadow-soft-2" : "mube:text-muted-foreground mube:hover:text-foreground"}`, children: [_jsx("input", { type: "radio", name: "tipo", value: t.valor, checked: ativo, onChange: () => setTipo(t.valor), className: "mube:sr-only" }), t.rotulo] }, t.valor));
-                        }) })] })), _jsxs("label", { className: "mube:flex mube:flex-col mube:gap-1.5", children: [_jsx("span", { className: "mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: sugestao ? "A sua ideia" : "Descrição" }), _jsxs("span", { className: `mube:flex mube:flex-col mube:gap-2 mube:rounded-xl mube:border mube:bg-card mube:p-3 mube:transition-[border-color,box-shadow] mube:focus-within:border-foreground mube:focus-within:shadow-input-focus ${validar && semDescricao ? "mube:border-destructive" : "mube:border-input"}`, children: [_jsx("textarea", { hidden: aGravar, value: texto, onChange: (e) => setTexto(e.target.value), rows: 4, maxLength: 20000, placeholder: sugestao ? "Qual é a ideia? O que gostaria que o software fizesse, e porquê?" : "O que aconteceu? O que estava a fazer quando o problema apareceu?", className: "mube:min-h-24 mube:w-full mube:resize-none mube:text-body mube:text-foreground mube:placeholder:text-muted-foreground mube:focus:outline-none" }), transcricao === "a_transcrever" && (_jsxs("span", { role: "status", className: "mube:flex mube:items-center mube:gap-2 mube:text-body-xs mube:text-muted-foreground", children: [_jsx(Rodinha, {}), " A transcrever o \u00E1udio\u2026"] })), transcricao === "falhou" && _jsx("span", { role: "status", className: "mube:text-body-xs mube:text-muted-foreground", children: "N\u00E3o foi poss\u00EDvel transcrever. O \u00E1udio segue na mesma." }), audio && !transcricao && !aGravar && _jsx("span", { className: "mube:text-body-xs mube:text-muted-foreground", children: "Transcrito do \u00E1udio. Pode corrigir o texto." }), _jsx("span", { className: "mube:flex mube:justify-end", children: _jsx(GravadorDeAudio, { gravado: audio, aoEstado: setAGravar, aoRetirar: () => {
+                        }) })] })), _jsxs("label", { className: "mube:flex mube:flex-col mube:gap-1.5", children: [_jsx("span", { className: "mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: sugestao ? "A sua ideia" : "Descrição" }), _jsxs("span", { className: `mube:flex mube:flex-col mube:gap-2 mube:rounded-xl mube:border mube:bg-card mube:p-3 mube:transition-[border-color,box-shadow] mube:focus-within:border-foreground mube:focus-within:shadow-input-focus ${validar && semDescricao ? "mube:border-destructive" : "mube:border-input"}`, children: [_jsx("textarea", { "data-foco": true, hidden: aGravar, value: texto, onChange: (e) => setTexto(e.target.value), rows: 4, maxLength: 20000, placeholder: sugestao ? "Qual é a ideia? O que gostaria que o software fizesse, e porquê?" : "O que aconteceu? O que estava a fazer quando o problema apareceu?", className: "mube:min-h-24 mube:w-full mube:resize-none mube:text-body mube:text-foreground mube:placeholder:text-muted-foreground mube:focus:outline-none" }), transcricao === "a_transcrever" && (_jsxs("span", { role: "status", className: "mube:flex mube:items-center mube:gap-2 mube:text-body-xs mube:text-muted-foreground", children: [_jsx(Rodinha, {}), " A transcrever o \u00E1udio\u2026"] })), transcricao === "falhou" && _jsx("span", { role: "status", className: "mube:text-body-xs mube:text-muted-foreground", children: "N\u00E3o foi poss\u00EDvel transcrever. O \u00E1udio segue na mesma." }), audio && !transcricao && !aGravar && _jsx("span", { className: "mube:text-body-xs mube:text-muted-foreground", children: "Transcrito do \u00E1udio. Pode corrigir o texto." }), _jsx("span", { className: "mube:flex mube:justify-end", children: _jsx(GravadorDeAudio, { gravado: audio, aoEstado: setAGravar, aoRetirar: () => {
                                         if (audio)
                                             envios.retirar(audio.chave);
                                         setAudio(null);
@@ -352,5 +367,7 @@ export function NovoRelato({ aoFechar, aoCriar, soSugestao = false, tipoInicial,
                                     } }) })] }), validar && semDescricao && (_jsx("span", { className: "mube:text-body-xs mube:text-destructive", children: sugestao ? "Descreva a ideia, grave um áudio ou junte um ficheiro." : "Descreva o problema, grave um áudio ou junte um ficheiro." }))] }), _jsxs("div", { className: "mube:flex mube:flex-col mube:gap-2", children: [_jsx("span", { className: "mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: "Anexos" }), _jsx(ZonaDeSoltar, { aoEscolher: (f) => envios.juntar(f) }), _jsx(ListaDeEnvios, { envios: envios.envios.filter((e) => !e.audio), aoRetirar: envios.retirar })] }), !sugestao && (_jsxs("fieldset", { className: "mube:flex mube:flex-col mube:gap-2", children: [_jsx("legend", { className: "mube:mb-2 mube:text-label-sm mube:tracking-wide mube:text-muted-foreground mube:uppercase", children: "Impacto para si" }), _jsx("div", { className: "mube:flex mube:flex-col mube:gap-2", children: IMPACTOS.map((i) => {
                             const escolhido = impacto === i.valor;
                             return (_jsxs("label", { className: `mube:flex mube:h-full mube:cursor-pointer mube:items-center mube:gap-3 mube:rounded-xl mube:border mube:px-3 mube:py-2 mube:transition-colors mube:duration-150 ${escolhido ? "mube:border-foreground" : validar && !impacto ? "mube:border-destructive" : "mube:border-border mube:hover:bg-muted"}`, children: [_jsx("input", { type: "radio", name: "impacto", value: i.valor, checked: escolhido, onChange: () => setImpacto(i.valor), className: "mube:sr-only" }), _jsx("span", { "aria-hidden": true, className: `mube:flex mube:size-4 mube:shrink-0 mube:items-center mube:justify-center mube:rounded-full mube:border ${escolhido ? "mube:border-primary mube:bg-primary" : "mube:border-input"}`, children: escolhido && _jsx("span", { className: "mube:size-1.5 mube:rounded-full mube:bg-primary-foreground" }) }), _jsxs("span", { className: "mube:flex mube:flex-col", children: [_jsx("span", { className: "mube:text-label mube:text-foreground", children: i.rotulo }), _jsx("span", { className: "mube:text-body-xs mube:text-muted-foreground", children: i.ajuda })] })] }, i.valor));
-                        }) }), validar && !impacto && _jsx("span", { className: "mube:text-body-xs mube:text-destructive", children: "Escolha o impacto." })] })), _jsx("p", { className: "mube:text-body-xs mube:text-muted-foreground", children: sugestao ? "A equipa analisa cada sugestão e responde aqui, em Sugestões. Se for um erro, use «Reportar um problema»." : "A prioridade é definida pela equipa depois da triagem." }), estado === "a_enviar" && (_jsxs("p", { role: "status", className: "mube:flex mube:items-center mube:gap-2 mube:text-body-sm mube:text-muted-foreground", children: [_jsx(Rodinha, {}), " ", sugestao ? "A enviar a sugestão…" : "A enviar o relato…"] }))] }));
+                        }) }), validar && !impacto && _jsx("span", { className: "mube:text-body-xs mube:text-destructive", children: "Escolha o impacto." })] })), _jsxs("p", { className: "mube:text-body-xs mube:text-muted-foreground", children: [sugestao
+                        ? `${sessao.sugestoes ? "A equipa analisa cada sugestão e responde aqui, em Sugestões." : "A equipa analisa cada sugestão."} Se for um erro, use «Reportar um problema».`
+                        : "A prioridade é definida pela equipa depois da triagem.", pagina && " Vai junto a página onde está, para a equipa saber onde foi."] }), estado === "a_enviar" && (_jsxs("p", { role: "status", className: "mube:flex mube:items-center mube:gap-2 mube:text-body-sm mube:text-muted-foreground", children: [_jsx(Rodinha, {}), " ", sugestao ? "A enviar a sugestão…" : "A enviar o relato…"] }))] }));
 }

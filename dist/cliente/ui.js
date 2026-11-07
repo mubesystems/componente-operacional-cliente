@@ -59,7 +59,8 @@ function CaixaDaJanela({ titulo, descricao, aoFechar, rodape, largura = "mube:md
     const caixa = useRef(null);
     useEffect(() => {
         const antes = document.activeElement;
-        caixa.current?.querySelector("textarea, input, button[data-principal]")?.focus();
+        const alvo = caixa.current?.querySelector("[data-foco]") ?? caixa.current?.querySelector("textarea, input, button[data-principal]");
+        alvo?.focus();
         const tecla = (e) => {
             if (e.key !== "Escape")
                 return;

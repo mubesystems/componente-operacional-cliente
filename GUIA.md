@@ -48,7 +48,7 @@ A chave mostra-se **uma vez** ao ser criada. Guarda-a já nas variáveis do proj
 ### 3.1 O pacote
 
 ```bash
-pnpm add github:mubesystems/componente-operacional-cliente#v0.8.1
+pnpm add github:mubesystems/componente-operacional-cliente#v0.8.2
 ```
 
 Usa sempre a **última tag** do repositório ([lista de versões](https://github.com/mubesystems/componente-operacional-cliente/tags)). Não é preciso `.npmrc` nem token.
@@ -499,6 +499,15 @@ await sincronizarLiberados([{ id: "…", nome: "Marina Costa", email: "marina@cl
 2. `pnpm add github:mubesystems/componente-operacional-cliente#v<versão>`.
 3. Se a versão trouxer SQL novo (a Mube diz), **voltar a correr** o `componente-mube.sql` (§3.3). Correr sempre também não faz mal.
 4. Deploy.
+
+### Da 0.8.1 para a 0.8.2
+
+- **Sem SQL novo.**
+- **A página vai junto:** o `RelatarMube` acrescenta ao texto do relato ou da sugestão a página onde a pessoa estava, sem a query. O formulário diz isso à pessoa.
+- **O botão responde sempre:** um clique antes de a sessão chegar abre o formulário quando ela chega; se não chegar em 3 s, ou se a conta não tiver acesso, aparece um aviso.
+- **O atalho ⌥⇧R** não abre com uma janela modal do software aberta, porque o formulário ficaria sem cliques nem foco.
+- **«Ver o ticket» e «Ver a sugestão»** abrem também com `navegar={router.push}`, na própria página do suporte ou vindo de outra.
+- **Formulário:** o foco abre na descrição, não se fecha a meio do envio, e fechar a gravar larga o microfone.
 
 ### Da 0.8.0 para a 0.8.1
 

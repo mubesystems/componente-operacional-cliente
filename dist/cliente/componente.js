@@ -11,7 +11,7 @@ import { NovoRelato } from "./relato.js";
 import { Sugestoes } from "./sugestoes.js";
 import { Tickets } from "./tickets.js";
 import { BannerDoTour, Tour } from "./tour.js";
-import { Botao, BotaoIcone, Camada, Icone, Vazio } from "./ui.js";
+import { Botao, BotaoIcone, Camada, Icone, Janela, Vazio } from "./ui.js";
 const SEPARADORES = ["tickets", "sugestoes", "drive", "credenciais", "notificacoes", "acessos"];
 /** v0.7.0: pode reportar (quem está liberado ou, com `relatosAbertos`, qualquer pessoa com sessão). */
 export const podeRelatar = (s) => Boolean(s?.utilizador && (s.relatar ?? s.liberado));
@@ -166,11 +166,8 @@ function useMotor(base, { ativo = true, cadencia = A_CADA_MS } = {}) {
 function useNoNavegador() {
     return useSyncExternalStore(() => () => { }, () => true, () => false);
 }
-/** A secção e o ticket pedidos no endereço (`?secao=notificacoes`, `?ticket=12`), para os atalhos levarem ao sítio certo. */
-function doEndereco() {
-    if (typeof window === "undefined")
-        return { secao: null, ticket: null, sugestao: null };
-    const q = new URLSearchParams(window.location.search);
+/** A secção e o ticket pedidos (`secao=notificacoes`, `ticket=12`), para os atalhos levarem ao sítio certo. */
+function lerPedido(q) {
     const secao = q.get("secao");
     const ticket = Number(q.get("ticket"));
     const sugestao = Number(q.get("sugestao"));
@@ -180,6 +177,18 @@ function doEndereco() {
         sugestao: Number.isInteger(sugestao) && sugestao > 0 ? sugestao : null,
     };
 }
+function doEndereco() {
+    if (typeof window === "undefined")
+        return { secao: null, ticket: null, sugestao: null };
+    return lerPedido(new URLSearchParams(window.location.search));
+}
+/**
+ * v0.8.2: o `RelatarMube` leva à página do suporte. Com o `router.push` do Next,
+ * a página pode já estar aberta, ou montar antes de o endereço mudar, por isso
+ * o pedido também vem por aqui e não só pelo endereço.
+ */
+const EVENTO_IR = "mube:ir";
+let pedidoPorAbrir = null;
 // ─── A superfície: secções à esquerda (ou em baixo, no telemóvel) e o conteúdo ─
 function Superficie({ motor, sessao, rotulo, modo, aoFechar, sugestoes = false, }) {
     // v0.7.0: quem não está liberado mas pode reportar (relatos abertos).
@@ -189,6 +198,27 @@ function Superficie({ motor, sessao, rotulo, modo, aoFechar, sugestoes = false, 
     const [ticketAberto, setTicketAberto] = useState(inicio.ticket);
     const [sugestaoAberta, setSugestaoAberta] = useState(inicio.sugestao);
     const { avisos } = motor;
+    useEffect(() => {
+        const aplicar = (parametro) => {
+            pedidoPorAbrir = null;
+            const pedido = lerPedido(new URLSearchParams(parametro));
+            if (pedido.secao)
+                setSeparador(pedido.secao);
+            if (pedido.ticket) {
+                setSeparador("tickets");
+                setTicketAberto(pedido.ticket);
+            }
+            if (pedido.sugestao) {
+                setSeparador("sugestoes");
+                setSugestaoAberta(pedido.sugestao);
+            }
+        };
+        if (pedidoPorAbrir)
+            aplicar(pedidoPorAbrir);
+        const ouvir = (e) => aplicar(e.detail);
+        window.addEventListener(EVENTO_IR, ouvir);
+        return () => window.removeEventListener(EVENTO_IR, ouvir);
+    }, []);
     // S65: o tour guiado. Feito ou dispensado fica no banco do software (nunca na plataforma).
     const [estadoDoTour, setEstadoDoTour] = useState(sessao.tour ?? null);
     const [emTour, setEmTour] = useState(false);
@@ -371,6 +401,15 @@ function useCaminho() {
 const EVENTO_RELATAR = "mube:relatar";
 /** ⌥⇧R no Mac, Alt+Shift+R no Windows: não colide com os atalhos dos navegadores. */
 const ATALHO_DO_RELATO = "alt+shift+r";
+/** Quanto se espera pela sessão antes de dizer que o formulário não abre. */
+const ESPERA_DA_SESSAO_MS = 3000;
+/** Com uma janela modal do software aberta, o nosso formulário ficaria sem cliques nem foco. */
+const softwareComJanela = () => document.body.style.pointerEvents === "none";
+/** Vai junto com o relato, para a equipa saber onde a pessoa estava. Sem a query, que pode ter dados. */
+function paginaAtual() {
+    const { pathname } = window.location;
+    return document.title ? `${document.title} (${pathname})` : pathname;
+}
 /**
  * Abre o "Reportar um problema" do `RelatarMube` montado na página. Para um
  * botão ou um item de menu do software:
@@ -378,7 +417,7 @@ const ATALHO_DO_RELATO = "alt+shift+r";
  *   <button onClick={() => abrirRelatoMube()}>Reportar um problema</button>
  *   <button onClick={() => abrirRelatoMube("sugestao")}>Sugerir uma ideia</button>
  *
- * v0.8.1: `"sugestao"` abre já em «Sugestão» (precisa de `sugestoes` no
+ * Numa janela modal do software, fecha-a primeiro. v0.8.1: `"sugestao"` abre já em «Sugestão» (precisa de `sugestoes` no
  * `RelatarMube`). Qualquer outro valor, como o evento do clique, abre em «Erro».
  */
 export function abrirRelatoMube(tipo) {
@@ -414,7 +453,9 @@ function bate(c, e) {
  * (por omissão ⌥⇧R / Alt+Shift+R) ou com `abrirRelatoMube()`. Ao enviar, a
  * pessoa fica onde estava: a confirmação mostra o código, e "Ver o ticket"
  * leva à página do suporte. Só abre a quem tem acesso ao suporte (ou, com
- * `relatosAbertos: true` no servidor, a qualquer pessoa com sessão).
+ * `relatosAbertos: true` no servidor, a qualquer pessoa com sessão); aos outros,
+ * e se a sessão não responder, mostra um aviso. A página onde a pessoa estava
+ * vai no fim do texto.
  * Com `sugestoes`, a pessoa escolhe entre «Erro» e «Sugestão».
  */
 export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = ATALHO_DO_RELATO, tema = "auto", navegar, sugestoes = false, }) {
@@ -423,38 +464,56 @@ export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = AT
     const noNavegador = useNoNavegador();
     const [aberto, setAberto] = useState(false);
     const [pedido, setPedido] = useState(null);
+    const [pagina, setPagina] = useState(undefined);
+    const [semResposta, setSemResposta] = useState(false);
     const sessao = motor.sessao;
     const pode = podeRelatar(sessao);
+    const { api, avisos, versao, recarregarAvisos, recarregarSessao } = motor;
+    // v0.8.2: o botão responde sempre, mesmo antes de a sessão chegar.
     useEffect(() => {
-        if (!pode)
-            return;
-        const combinacao = atalho ? lerAtalho(atalho) : null;
         const abrir = (e) => {
             const tipo = e.detail?.tipo;
             // `vez` volta a montar o formulário, se já estava aberto no outro tipo.
             setPedido((p) => (tipo ? { tipo, vez: (p?.vez ?? 0) + 1 } : null));
-            setAberto(true);
-        };
-        const tecla = (e) => {
-            if (!combinacao || e.repeat || !bate(combinacao, e))
-                return;
-            e.preventDefault();
-            setPedido(null);
+            setPagina(paginaAtual());
             setAberto(true);
         };
         window.addEventListener(EVENTO_RELATAR, abrir);
-        document.addEventListener("keydown", tecla);
-        return () => {
-            window.removeEventListener(EVENTO_RELATAR, abrir);
-            document.removeEventListener("keydown", tecla);
+        return () => window.removeEventListener(EVENTO_RELATAR, abrir);
+    }, []);
+    // Se a sessão falhou, o motor fica com `SEM_SESSAO`: sem utilizador, volta-se a tentar.
+    const semSessao = aberto && !sessao?.utilizador;
+    useEffect(() => {
+        if (!semSessao) {
+            setSemResposta(false);
+            return;
+        }
+        recarregarSessao();
+        const id = window.setTimeout(() => setSemResposta(true), ESPERA_DA_SESSAO_MS);
+        return () => window.clearTimeout(id);
+    }, [semSessao, recarregarSessao]);
+    useEffect(() => {
+        if (!pode)
+            return;
+        const combinacao = atalho ? lerAtalho(atalho) : null;
+        const tecla = (e) => {
+            if (!combinacao || e.repeat || !bate(combinacao, e) || softwareComJanela())
+                return;
+            e.preventDefault();
+            setPedido(null);
+            setPagina(paginaAtual());
+            setAberto(true);
         };
+        document.addEventListener("keydown", tecla);
+        return () => document.removeEventListener("keydown", tecla);
     }, [pode, atalho]);
-    const { api, avisos, versao, recarregarAvisos, recarregarSessao } = motor;
     const contexto = useMemo(() => {
         if (!sessao)
             return null;
         const ir = (parametro) => {
             const url = `${href}${href.includes("?") ? "&" : "?"}${parametro}`;
+            pedidoPorAbrir = parametro;
+            window.dispatchEvent(new CustomEvent(EVENTO_IR, { detail: parametro }));
             if (navegar)
                 navegar(url);
             else
@@ -477,11 +536,17 @@ export function RelatarMube({ base = "/api/mube", href = "/suporte", atalho = AT
             sugestoes,
         };
     }, [api, sessao, avisos, versao, recarregarAvisos, recarregarSessao, href, navegar, sugestoes]);
-    if (!noNavegador || !aberto || !pode || !contexto)
+    const fechar = useCallback(() => setAberto(false), []);
+    if (!noNavegador || !aberto)
         return null;
+    if (!pode || !contexto) {
+        if (!sessao?.utilizador && !semResposta)
+            return null;
+        return (_jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "contents" }, children: _jsx(Janela, { titulo: "N\u00E3o foi poss\u00EDvel abrir", aoFechar: fechar, rodape: _jsx(Botao, { "data-principal": true, onClick: fechar, children: "Fechar" }), children: _jsx("p", { className: "mube:text-body-sm mube:text-muted-foreground", children: sessao?.utilizador ? "A sua conta não tem acesso a este formulário. Fale com quem gere o software." : "Não conseguimos ligar ao suporte. Tente de novo daqui a pouco." }) }) }));
+    }
     return (
     // Só dá a classe (e o tema) à janela, que abre por portal no fim da página.
-    _jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "contents" }, children: _jsx(Ctx.Provider, { value: contexto, children: _jsx(NovoRelato, { tipoInicial: pedido?.tipo, aoFechar: () => setAberto(false), aoCriar: () => sessao?.liberado && recarregarAvisos() }, pedido?.vez ?? 0) }) }));
+    _jsx("div", { className: `mube-c ${escuro ? "mube-escuro" : ""}`, style: { display: "contents" }, children: _jsx(Ctx.Provider, { value: contexto, children: _jsx(NovoRelato, { tipoInicial: pedido?.tipo, pagina: pagina, aoFechar: fechar, aoCriar: () => sessao?.liberado && recarregarAvisos() }, pedido?.vez ?? 0) }) }));
 }
 // ─── A janela flutuante (a forma antiga) ─────────────────────────────────────
 /**
